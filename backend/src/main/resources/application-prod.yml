@@ -1,0 +1,54 @@
+# ============================================================================
+#  生产环境（prod）
+#  启动：java -jar xxx.jar --spring.profiles.active=prod
+#  所有敏感项一律走环境变量，禁止把真实口令写进仓库（详见架构文档 5.5 节）
+# ============================================================================
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:iecmp}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 50
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 32
+          max-idle: 16
+          min-idle: 4
+          max-wait: 3000ms
+
+logging:
+  level:
+    root: warn
+    com.iecmp: info
+
+jwt:
+  secret: ${JWT_SECRET}
+
+oss:
+  endpoint: ${OSS_ENDPOINT}
+  bucket: ${OSS_BUCKET}
+  access-key-id: ${OSS_ACCESS_KEY_ID}
+  access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+  url-prefix: ${OSS_URL_PREFIX}
+
+jellyfin:
+  base-url: ${JELLYFIN_BASE_URL:}
+
+iecmp:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}

@@ -1,0 +1,124 @@
+# ============================================================================
+#  IECMP 创业中心管理平台 · 后端主配置
+#  环境差异放在 application-{dev|prod}.yml，本文件只放与环境无关的配置
+#  配置项清单见《IECMP-项目介绍与技术架构.md》7.3 节
+# ============================================================================
+server:
+  port: 8080
+  servlet:
+    context-path: /api            # 统一前缀，接口文档中不再重复书写 /api
+    encoding:
+      charset: UTF-8
+      force: true
+  tomcat:
+    uri-encoding: UTF-8
+
+spring:
+  application:
+    name: iecmp
+  profiles:
+    active: dev                   # 本地开发默认 dev；上线用 --spring.profiles.active=prod
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  servlet:
+    multipart:
+      max-file-size: 20MB          # 文档类上限，图片上限由业务层再校验（见接口文档 2.9）
+      max-request-size: 50MB
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.iecmp.*.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto                # 数据库自增（见《数据库设计》1.1 节）
+      table-underline: true
+      insert-strategy: not_null
+      update-strategy: not_null
+      # ----------------------------------------------------------------------
+      #  逻辑删除：全库 deleted 为 BIGINT，删除时写入本行 id（不是 1），
+      #  并参与全部唯一索引，使「删除后同名数据可重新插入」。详见《数据库设计》1.5 节。
+      #  —— 上线前务必用一个真实删除动作打印 SQL 确认；若 MyBatis-Plus 版本不生效，
+      #     在 Mapper 中改用自定义 @Update 实现同样的效果。
+      # ----------------------------------------------------------------------
+      logic-delete-field: deleted
+      logic-not-delete-value: 0
+      logic-delete-value: id
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  default-flat-param-object: true
+
+# ============================================================================
+#  业务自定义配置
+# ============================================================================
+jwt:
+  secret: CHANGE_ME_iecmp_jwt_secret_key_at_least_32_bytes_long
+  access-token-expire: 7200       # accessToken 有效期（秒），2 小时
+  refresh-token-expire: 604800    # refreshToken 有效期（秒），7 天
+  refresh-renew-threshold: 86400  # refreshToken 剩余不足 1 天时滑动续期（秒）
+  header: Authorization
+  prefix: "Bearer "
+
+upload:
+  max-image-size: 5242880         # 图片上限 5MB
+  max-doc-size: 20971520          # 文档上限 20MB
+
+oss:
+  endpoint: oss-cn-hangzhou.aliyuncs.com
+  bucket: iecmp-upload
+  access-key-id: ""
+  access-key-secret: ""
+  url-prefix: https://iecmp-upload.oss-cn-hangzhou.aliyuncs.com
+
+jellyfin:
+  base-url: ""                    # 拼接视频播放链接用，留空表示未配置
+
+iecmp:
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+  auth:
+    # 无需登录即可访问的路径（不含 context-path）；** 表示任意多级
+    # 与接口文档「是否需令牌 = 否」的 9 个公开接口一一对应
+    ignore-urls:
+      - /admin/login
+      - /user/login
+      - /user/token/refresh
+      - /user/register
+      - /common/register/config
+      - /common/register/apply
+      - /common/dict/**
+      - /common/captcha
+      - /common/health
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /doc.html
+      - /error
+
+    # 令牌可选路径：带了令牌就解析并写入上下文，没带也放行
+    # 与接口文档「是否需令牌 = 可选」的 5 个接口一一对应
+    optional-urls:
+      - /user/honor/alumni/*
+      - /user/honor/alumni/page
+      - /user/honor/stat
+      - /user/video/list

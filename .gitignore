@@ -1,0 +1,36 @@
+# ===== Java / Maven =====
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.log
+logs/
+
+# ===== 前端 =====
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# ===== IDE =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/extensions.json
+*.swp
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
+
+# ===== 敏感配置：绝不提交 =====
+.env
+.env.local
+.env.*.local
+backend/src/main/resources/application-local.yml
+**/application-local.yml
+*.pem
+*.key
