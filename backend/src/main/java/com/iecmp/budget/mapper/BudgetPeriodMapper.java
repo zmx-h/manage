@@ -2,7 +2,12 @@ package com.iecmp.budget.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetPeriod;
+import com.iecmp.budget.vo.BudgetPeriodDetailVO;
+import com.iecmp.budget.vo.UserBudgetPeriodPageVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 预算周期表（{@code budget_period}）数据访问接口。
@@ -21,4 +26,17 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface BudgetPeriodMapper extends BaseMapper<BudgetPeriod> {
+
+    /** 3-01 公示预算周期分页 */
+    List<UserBudgetPeriodPageVO> selectPublicPage(@Param("year") String year,
+                                                   @Param("status") Integer status,
+                                                   @Param("offset") Integer offset,
+                                                   @Param("pageSize") Integer pageSize);
+
+    /** 3-01 配套总数 */
+    Long countPublicPage(@Param("year") String year,
+                         @Param("status") Integer status);
+
+    /** 3-02 预算周期详情 */
+    BudgetPeriodDetailVO selectDetailById(@Param("id") Long id);
 }

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.budget.mapper.BudgetApplyMapper">
+
+    <!-- 3-06 我的申请分页 -->
+    <select id="selectMyPage" resultType="com.iecmp.budget.vo.BudgetApplyMyPageVO">
+        SELECT
+            a.id AS applyId,
+            a.period_id AS periodId,
+            p.title AS periodTitle,
+            a.item_id AS itemId,
+            i.name AS itemName,
+            a.title,
+            a.amount,
+            a.expect_date AS expectDate,
+            a.attach_file_id AS attachFileId,
+            a.status,
+            u.real_name AS auditUserName,
+            a.audit_time AS auditTime,
+            a.audit_remark AS auditRemark,
+            a.create_time AS createTime
+        FROM budget_apply a
+        LEFT JOIN budget_period p ON a.period_id = p.id
+        LEFT JOIN budget_item i ON a.item_id = i.id
+        LEFT JOIN sys_user u ON a.audit_user_id = u.id
+        WHERE a.apply_user_id = #{applyUserId}
+          AND a.deleted = 0
+        <if test="status != null">
+            AND a.status = #{status}
+        </if>
+        <if test="periodId != null">
+            AND a.period_id = #{periodId}
+        </if>
+        <if test="beginTime != null">
+            AND a.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND a.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY a.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-06 配套总数 -->
+    <select id="countMyPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_apply a
+        WHERE a.apply_user_id = #{applyUserId}
+          AND a.deleted = 0
+        <if test="status != null">
+            AND a.status = #{status}
+        </if>
+        <if test="periodId != null">
+            AND a.period_id = #{periodId}
+        </if>
+        <if test="beginTime != null">
+            AND a.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND a.create_time &lt;= #{endTime}
+        </if>
+    </select>
+
+    <!-- 3-07 申请详情 -->
+    <select id="selectDetailById" resultType="com.iecmp.budget.vo.BudgetApplyDetailVO">
+        SELECT
+            a.id AS applyId,
+            a.period_id AS periodId,
+            p.title AS periodTitle,
+            a.item_id AS itemId,
+            i.name AS itemName,
+            a.apply_user_id AS applyUserId,
+            au.real_name AS applyUserName,
+            a.title,
+            a.amount,
+            a.reason,
+            a.expect_date AS expectDate,
+            a.attach_file_id AS attachFileId,
+            a.status,
+            u.real_name AS auditUserName,
+            a.audit_time AS auditTime,
+            a.audit_remark AS auditRemark,
+            a.create_time AS createTime
+        FROM budget_apply a
+        LEFT JOIN budget_period p ON a.period_id = p.id
+        LEFT JOIN budget_item i ON a.item_id = i.id
+        LEFT JOIN sys_user au ON a.apply_user_id = au.id
+        LEFT JOIN sys_user u ON a.audit_user_id = u.id
+        WHERE a.id = #{applyId}
+          AND a.deleted = 0
+    </select>
+
+    <!-- 3-07 关联支出 -->
+    <select id="selectExpenseByApplyId" resultType="com.iecmp.budget.vo.BudgetApplyDetailVO$ExpenseListVO">
+        SELECT
+            e.id AS expenseId,
+            e.title,
+            e.amount,
+            e.expense_date AS expenseDate
+        FROM budget_expense e
+        WHERE e.apply_id = #{applyId}
+          AND e.deleted = 0
+    </select>
+
+    <!-- 3-09 我的经费汇总 -->
+    <select id="selectMyStat" resultType="com.iecmp.budget.vo.BudgetStatMyVO">
+        SELECT
+            COUNT(*) AS applyTotal,
+            COALESCE(SUM(a.amount), 0) AS applyAmount,
+            SUM(a.status = 1) AS approvedCount,
+            COALESCE(SUM(CASE WHEN a.status = 1 THEN a.amount END), 0) AS approvedAmount,
+            SUM(a.status = 2) AS rejectedCount,
+            SUM(a.status = 0) AS pendingCount,
+            SUM(a.status = 3) AS cancelledCount,
+            COALESCE((
+                SELECT SUM(e.amount)
+                FROM budget_expense e
+                JOIN budget_apply a2 ON e.apply_id = a2.id
+                WHERE a2.apply_user_id = #{applyUserId}
+                  AND YEAR(a2.create_time) = #{year}
+                  AND e.deleted = 0
+                  AND a2.deleted = 0
+            ), 0) AS expenseAmount
+        FROM budget_apply a
+        WHERE a.apply_user_id = #{applyUserId}
+          AND a.deleted = 0
+          AND YEAR(a.create_time) = #{year}
+    </select>
+
+</mapper>
