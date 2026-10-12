@@ -29,6 +29,17 @@ public final class UserContext {
         return user == null ? null : user.getUserId();
     }
 
+    /**
+     * 获取当前登录用户 ID，未登录时返回 {@code 0L}（表示系统操作）。
+     *
+     * <p>用于写入 NOT NULL 字段（如 {@code asset_record.operator_id}、
+     * {@code asset_borrow.user_id}）时兜底，避免白名单跳过登录导致整条 INSERT 失败。
+     */
+    public static Long getUserIdOrDefault() {
+        Long userId = getUserId();
+        return userId != null ? userId : 0L;
+    }
+
     /** 请求结束时清理，避免线程复用造成串号。 */
     public static void clear() {
         HOLDER.remove();

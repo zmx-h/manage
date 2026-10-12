@@ -400,7 +400,7 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         record.setFromLocation(entity.getLocation());
         record.setToLocation(entity.getLocation());
         record.setRecordTime(LocalDateTime.now());
-        record.setOperatorId(UserContext.getUserId());
+        record.setOperatorId(UserContext.getUserIdOrDefault());
         record.setRemark(dto.getRemark());
         assetRecordService.save(record);
     }
@@ -436,7 +436,7 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
             record.setFromLocation(oldLocation);
             record.setToLocation(newLocation);
             record.setRecordTime(LocalDateTime.now());
-            record.setOperatorId(UserContext.getUserId());
+            record.setOperatorId(UserContext.getUserIdOrDefault());
             record.setRemark(dto.getRemark());
             assetRecordService.save(record);
         }

@@ -54,7 +54,7 @@ public class AssetInventoryItemServiceImpl extends ServiceImpl<AssetInventoryIte
 
         // 3. 更新盘点结果
         item.setCheckStatus(dto.getCheckStatus());
-        item.setCheckUserId(UserContext.getUserId());
+        item.setCheckUserId(UserContext.getUserIdOrDefault());
         item.setCheckTime(LocalDateTime.now());
         item.setRemark(dto.getRemark());
         this.updateById(item);

@@ -131,7 +131,7 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
 
         Integer auditStatus = dto.getAuditStatus();
         LocalDateTime now = LocalDateTime.now();
-        Long currentUserId = UserContext.getUserId();
+        Long currentUserId = UserContext.getUserIdOrDefault();
 
         // 驳回：只更新借用记录
         if (auditStatus == 2) {
@@ -206,7 +206,7 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
 
         AssetBorrow borrow = new AssetBorrow();
         borrow.setAssetId(dto.getAssetId());
-        borrow.setUserId(UserContext.getUserId());
+        borrow.setUserId(UserContext.getUserIdOrDefault());
         borrow.setBorrowType(dto.getBorrowType());
         borrow.setPurpose(dto.getPurpose());
         borrow.setBorrowTime(LocalDateTime.now());
@@ -318,7 +318,7 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
         record.setFromLocation(null);
         record.setToLocation(asset == null ? null : asset.getLocation());
         record.setRecordTime(now);
-        record.setOperatorId(UserContext.getUserId());
+        record.setOperatorId(UserContext.getUserIdOrDefault());
         record.setRemark(remark);
         assetRecordService.save(record);
     }

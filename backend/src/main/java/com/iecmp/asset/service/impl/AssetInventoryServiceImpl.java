@@ -250,7 +250,7 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
 
         // 4. 为每条异常明细写入盘点流水
         LocalDateTime now = LocalDateTime.now();
-        Long operatorId = UserContext.getUserId();
+        Long operatorId = UserContext.getUserIdOrDefault();
         Map<Long, AssetInfo> assetMap = getAssetMap(
                 abnormalItems.stream().map(AssetInventoryItem::getAssetId).collect(Collectors.toSet()));
         for (AssetInventoryItem it : abnormalItems) {
