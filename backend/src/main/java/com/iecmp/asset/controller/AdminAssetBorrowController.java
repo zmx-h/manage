@@ -56,8 +56,7 @@ public class AdminAssetBorrowController {
     @RequiresPerm("asset:borrow:list")
     @GetMapping("/admin/asset/borrow/page")
     public Result<PageResult<AssetBorrowPageVO>> getAssetBorrowPage(@ParameterObject AssetBorrowPageQuery query) {
-        // TODO 待实现（接口 4-20）：见《IECMP-接口开发文档-v1.6.md》接口 4-20
-        return Result.todo("4-20");
+        return Result.success(assetBorrowService.page(query));
     }
 
     /**
@@ -72,8 +71,8 @@ public class AdminAssetBorrowController {
     @OperLog(module = "管理端-借用审核", value = "借用审核")
     @PutMapping("/admin/asset/borrow/{id}/audit")
     public Result<Void> putAssetBorrowAudit(@PathVariable("id") Long id, @RequestBody @Valid AssetBorrowAuditDTO dto) {
-        // TODO 待实现（接口 4-21）：见《IECMP-接口开发文档-v1.6.md》接口 4-21
-        return Result.todo("4-21");
+        assetBorrowService.audit(id, dto);
+        return Result.success();
     }
 
     /**
@@ -88,7 +87,7 @@ public class AdminAssetBorrowController {
     @OperLog(module = "管理端-借用审核", value = "归还登记（后台）")
     @PutMapping("/admin/asset/borrow/{id}/return")
     public Result<Void> putAssetBorrowReturn(@PathVariable("id") Long id, @RequestBody @Valid AdminAssetBorrowReturnUpdateDTO dto) {
-        // TODO 待实现（接口 4-22）：见《IECMP-接口开发文档-v1.6.md》接口 4-22
-        return Result.todo("4-22");
+        assetBorrowService.adminReturn(id, dto);
+        return Result.success();
     }
 }

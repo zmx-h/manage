@@ -64,6 +64,6 @@ public class AssetStatOverviewVO implements Serializable {
 
         /** count（字段含义见接口文档） */
         @Schema(description = "count（字段含义见接口文档）")
-        private String count;
+        private Integer count;
     }
 }

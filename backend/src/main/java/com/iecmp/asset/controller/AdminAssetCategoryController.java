@@ -52,8 +52,7 @@ public class AdminAssetCategoryController {
     @OperLog(module = "管理端-资产分类", value = "新增资产分类")
     @PostMapping("/admin/asset/category")
     public Result<AssetCategoryCreateVO> postAssetCategory(@RequestBody @Valid AssetCategoryAddDTO dto) {
-        // TODO 待实现（接口 4-17）：见《IECMP-接口开发文档-v1.6.md》接口 4-17
-        return Result.todo("4-17");
+        return Result.success(assetCategoryService.add(dto));
     }
 
     /**
@@ -68,8 +67,8 @@ public class AdminAssetCategoryController {
     @OperLog(module = "管理端-资产分类", value = "修改资产分类")
     @PutMapping("/admin/asset/category")
     public Result<Void> putAssetCategory(@RequestBody @Valid AssetCategoryUpdateDTO dto) {
-        // TODO 待实现（接口 4-18）：见《IECMP-接口开发文档-v1.6.md》接口 4-18
-        return Result.todo("4-18");
+        assetCategoryService.update(dto);
+        return Result.success();
     }
 
     /**
@@ -84,7 +83,7 @@ public class AdminAssetCategoryController {
     @OperLog(module = "管理端-资产分类", value = "删除资产分类")
     @DeleteMapping("/admin/asset/category/{id}")
     public Result<Void> deleteAssetCategory(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 4-19）：见《IECMP-接口开发文档-v1.6.md》接口 4-19
-        return Result.todo("4-19");
+        assetCategoryService.remove(id);
+        return Result.success();
     }
 }
