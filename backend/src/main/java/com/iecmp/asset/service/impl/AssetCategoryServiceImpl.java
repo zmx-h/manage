@@ -15,6 +15,7 @@ import com.iecmp.asset.vo.AssetCategoryTreeVO;
 import com.iecmp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,7 +100,7 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AssetCategoryCreateVO add(AssetCategoryAddDTO dto) {
-        // 父级存在性校验
+        // 1. 父级存在性校验
         if (dto.getParentId() != null && dto.getParentId() != 0) {
             AssetCategory parent = this.getById(dto.getParentId());
             if (parent == null) {
@@ -107,10 +108,28 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             }
         }
 
+        // 2. 分类编码唯一性校验（code 可空，仅非空时校验）
+        String code = dto.getCode();
+        if (code != null && !code.isBlank()) {
+            Long exists = this.count(Wrappers.lambdaQuery(AssetCategory.class)
+                    .eq(AssetCategory::getCode, code));
+            if (exists != null && exists > 0) {
+                throw new BusinessException(AssetErrorCode.E40018.getCode(), AssetErrorCode.E40018.getMsg());
+            }
+        }
+
         AssetCategory entity = new AssetCategory();
         entity.setName(dto.getName());
         entity.setParentId(dto.getParentId());
-        this.save(entity);
+        entity.setCode(code);
+        entity.setSortNo(dto.getSortNo());
+        try {
+            this.save(entity);
+        } catch (DuplicateKeyException e) {
+            // 并发下唯一键兜底：转业务异常，避免抛 500
+            log.warn("新增资产分类触发唯一键冲突, code={}", code, e);
+            throw new BusinessException(AssetErrorCode.E40018.getCode(), AssetErrorCode.E40018.getMsg());
+        }
 
         AssetCategoryCreateVO vo = new AssetCategoryCreateVO();
         vo.setCategoryId(entity.getId());
@@ -146,12 +165,29 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             }
         }
 
-        // 4. 更新
+        // 4. 分类编码唯一性校验（排除当前 id，仅非空时校验）
+        String code = dto.getCode();
+        if (code != null && !code.isBlank()) {
+            Long exists = this.count(Wrappers.lambdaQuery(AssetCategory.class)
+                    .eq(AssetCategory::getCode, code)
+                    .ne(AssetCategory::getId, dto.getCategoryId()));
+            if (exists != null && exists > 0) {
+                throw new BusinessException(AssetErrorCode.E40018.getCode(), AssetErrorCode.E40018.getMsg());
+            }
+        }
+
+        // 5. 更新
         entity.setName(dto.getName());
         entity.setParentId(parentId);
-        entity.setCode(dto.getCode());
+        entity.setCode(code);
         entity.setSortNo(dto.getSortNo());
-        this.updateById(entity);
+        try {
+            this.updateById(entity);
+        } catch (DuplicateKeyException e) {
+            // 并发下唯一键兜底：转业务异常，避免抛 500
+            log.warn("修改资产分类触发唯一键冲突, categoryId={}, code={}", dto.getCategoryId(), code, e);
+            throw new BusinessException(AssetErrorCode.E40018.getCode(), AssetErrorCode.E40018.getMsg());
+        }
     }
 
     // ============================== 4-19 删除分类 ==============================

@@ -66,7 +66,10 @@ public enum AssetErrorCode {
     E40016(40016, "导出数据量超出上限"),
 
     /** 该借用记录状态不允许审核 */
-    E40017(40017, "该借用记录状态不允许审核");
+    E40017(40017, "该借用记录状态不允许审核"),
+
+    /** 分类编码已存在 */
+    E40018(40018, "分类编码已存在");
 
     private final Integer code;
     private final String msg;
