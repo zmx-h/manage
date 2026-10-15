@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  模块二 · 托管账户 SQL。
+
+  接口 2-13 需要展示成员姓名与年级（来自 sys_user），属多表查询，所以写在 XML 里。
+  时间字段一律用 DATE_FORMAT 输出成 'yyyy-MM-dd HH:mm:ss'，与全局 Jackson 时间格式一致——
+  直接取 DATETIME 交给驱动转字符串，格式会随驱动版本变化。
+-->
+<mapper namespace="com.iecmp.repo.mapper.RepoAccountMapper">
+
+    <select id="selectAccountPage" resultType="com.iecmp.repo.vo.RepoAccountPageVO">
+        SELECT a.id AS account_id,
+        a.user_id AS user_id,
+        u.real_name AS real_name,
+        u.grade AS grade,
+        a.platform AS platform,
+        a.account_name AS account_name,
+        a.status AS status,
+        (SELECT COUNT(*) FROM repo_project p
+        WHERE p.account_id = a.id AND p.deleted = 0) AS project_count,
+        <!--
+          is_merge = 0 必须带上：接口文档 8.1 已确定口径 6 规定合并提交入库但聚合时过滤。
+          这里与接口 2-07 的 repo_project.commitCount（见 RepoProjectMapper.selectCommitCounts）
+          口径必须一致，否则同一个仓库在两个页面上显示的提交数不一样。
+        -->
+        (SELECT COUNT(*) FROM repo_commit c
+        INNER JOIN repo_project p2 ON p2.id = c.project_id AND p2.deleted = 0
+        WHERE p2.account_id = a.id AND c.deleted = 0 AND c.is_merge = 0) AS commit_count,
+        DATE_FORMAT(a.last_sync_time, '%Y-%m-%d %H:%i:%s') AS last_sync_time,
+        DATE_FORMAT(a.bind_time, '%Y-%m-%d %H:%i:%s') AS bind_time
+        FROM repo_account a
+        LEFT JOIN sys_user u ON u.id = a.user_id AND u.deleted = 0
+        WHERE a.deleted = 0
+        <if test="q.keyword != null and q.keyword != ''">
+            AND (a.account_name LIKE CONCAT('%', #{q.keyword}, '%')
+            OR u.real_name LIKE CONCAT('%', #{q.keyword}, '%'))
+        </if>
+        <if test="q.platform != null and q.platform != ''">
+            AND a.platform = #{q.platform}
+        </if>
+        <if test="q.status != null">
+            AND a.status = #{q.status}
+        </if>
+        <if test="q.grade != null and q.grade != ''">
+            AND u.grade = #{q.grade}
+        </if>
+        <choose>
+            <when test="orderByClause != null">ORDER BY ${orderByClause}</when>
+            <otherwise>ORDER BY a.create_time DESC, a.id DESC</otherwise>
+        </choose>
+    </select>
+
+</mapper>

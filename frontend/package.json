@@ -1,0 +1,28 @@
+{
+  "name": "iecmp-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IECMP 创业中心管理平台 - 前端骨架（Vue 3 + Vite）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.9.1",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "eslint": "^9.17.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "vite": "^6.0.5"
+  }
+}

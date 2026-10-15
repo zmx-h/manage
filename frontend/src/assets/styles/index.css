@@ -1,0 +1,20 @@
+/* 全局基础样式（骨架）：正式视觉稿确定后再补充主题变量 */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background-color: #f5f7fa;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}

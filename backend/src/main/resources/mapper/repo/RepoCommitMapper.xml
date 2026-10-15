@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  模块二 · 提交记录统计 SQL。
+
+  设计约束：
+  1. 复杂 SQL 才写 XML（见 resources/mapper/README.md），本文件承载模块二<b>全部</b>统计口径；
+  2. 逻辑删除由 @TableLogic 维护，自定义 SQL 不走 MP 的自动拼接，因此每处都显式写 deleted = 0；
+  3. 所有过滤条件都用 #{} 占位；排序列用 <choose> 选固定表达式，绝不拼接字符串。
+-->
+<mapper namespace="com.iecmp.repo.mapper.RepoCommitMapper">
+
+    <!--
+      「纳入统计的提交」公共 FROM 片段，接口 2-10 / 2-11 / 2-12 / 2-14 / 2-15 共用。
+
+      is_merge = 0 —— 合并提交默认不计入统计（接口文档 8.1 已确定口径 6）
+      p.tracked = 1 —— 关闭统计的仓库不计入（接口文档 8.3.2）
+      a.status  = 1 —— 令牌失效的账户不计入（接口文档 8.5.2，仅后台看板强制）
+
+      两个开关都由调用方显式传入，避免「成员自己的历史提交因为令牌过期而消失」：
+      成员端口径（2-10 / 2-11 / 2-12）跟踪 tracked，但不跟账户状态。
+    -->
+    <sql id="statFrom">
+        FROM repo_commit c
+        INNER JOIN repo_project p ON p.id = c.project_id AND p.deleted = 0
+        INNER JOIN repo_account a ON a.id = p.account_id AND a.deleted = 0
+        WHERE c.deleted = 0
+        AND c.is_merge = 0
+        <if test="trackedOnly">AND p.tracked = 1</if>
+        <if test="activeAccountOnly">AND a.status = 1</if>
+    </sql>
+
+    <!--
+      采集用的批量插入。deleted 交给列默认值 0，create_time / update_time 由 NOW() 填充
+      （采集线程没有登录上下文，create_by 保持 NULL）。
+    -->
+    <insert id="insertBatch">
+        INSERT INTO repo_commit
+        (project_id, user_id, commit_sha, branch, author_name, author_email,
+        message, commit_time, add_lines, del_lines, is_merge, create_time, update_time)
+        VALUES
+        <foreach collection="commits" item="item" separator=",">
+            (#{item.projectId}, #{item.userId}, #{item.commitSha}, #{item.branch}, #{item.authorName},
+            #{item.authorEmail}, #{item.message}, #{item.commitTime}, #{item.addLines}, #{item.delLines},
+            #{item.isMerge}, NOW(), NOW())
+        </foreach>
+    </insert>
+
+    <select id="selectDailyUserStats" resultType="com.iecmp.repo.model.RepoDailyUserStat">
+        SELECT DATE(c.commit_time) AS stat_date,
+        c.user_id AS user_id,
+        COUNT(*) AS commit_count,
+        COALESCE(SUM(c.add_lines), 0) AS add_lines,
+        COALESCE(SUM(c.del_lines), 0) AS del_lines
+        <include refid="statFrom"/>
+        AND c.commit_time &gt;= #{begin}
+        AND c.commit_time &lt;= #{end}
+        <if test="userId != null">AND c.user_id = #{userId}</if>
+        <if test="projectId != null">AND c.project_id = #{projectId}</if>
+        GROUP BY DATE(c.commit_time), c.user_id
+        ORDER BY stat_date
+    </select>
+
+    <select id="selectUserSummary" resultType="com.iecmp.repo.model.RepoUserSummary">
+        SELECT c.user_id AS user_id,
+        COUNT(*) AS commit_count,
+        COUNT(DISTINCT DATE(c.commit_time)) AS active_days,
+        COALESCE(SUM(c.add_lines), 0) AS add_lines,
+        COALESCE(SUM(c.del_lines), 0) AS del_lines,
+        COUNT(DISTINCT c.project_id) AS project_count,
+        COUNT(DISTINCT c.branch) AS branch_count
+        <include refid="statFrom"/>
+        AND c.commit_time &gt;= #{begin}
+        AND c.commit_time &lt;= #{end}
+        AND c.user_id = #{userId}
+        GROUP BY c.user_id
+    </select>
+
+    <!--
+      接口 2-14：全中心成员贡献汇总。
+      这里没有复用 statFrom 片段，因为还要 LEFT JOIN sys_user 取姓名 / 年级 / 头像，
+      而片段已经带了 WHERE，无法在片段之后再补 JOIN。过滤条件与片段保持一致。
+    -->
+    <select id="selectUserSummaries" resultType="com.iecmp.repo.model.RepoUserSummary">
+        SELECT c.user_id AS user_id,
+        u.real_name AS real_name,
+        u.grade AS grade,
+        u.avatar_url AS avatar_url,
+        COUNT(*) AS commit_count,
+        COUNT(DISTINCT DATE(c.commit_time)) AS active_days,
+        COALESCE(SUM(c.add_lines), 0) AS add_lines,
+        COALESCE(SUM(c.del_lines), 0) AS del_lines,
+        COUNT(DISTINCT c.project_id) AS project_count,
+        COUNT(DISTINCT c.branch) AS branch_count
+        FROM repo_commit c
+        INNER JOIN repo_project p ON p.id = c.project_id AND p.deleted = 0
+        INNER JOIN repo_account a ON a.id = p.account_id AND a.deleted = 0
+        LEFT JOIN sys_user u ON u.id = c.user_id AND u.deleted = 0
+        WHERE c.deleted = 0
+        AND c.is_merge = 0
+        <if test="trackedOnly">AND p.tracked = 1</if>
+        <if test="activeAccountOnly">AND a.status = 1</if>
+        AND c.commit_time &gt;= #{begin}
+        AND c.commit_time &lt;= #{end}
+        GROUP BY c.user_id, u.real_name, u.grade, u.avatar_url
+        ORDER BY
+        <choose>
+            <when test="sortField == 2">active_days DESC, commit_count DESC</when>
+            <when test="sortField == 3">(add_lines + del_lines) DESC, commit_count DESC</when>
+            <when test="sortField == 4">
+                (commit_count * #{commitWeight} + active_days * #{activeDayWeight} + (add_lines + del_lines) *
+                #{codeLineWeight}) DESC, commit_count DESC
+            </when>
+            <otherwise>commit_count DESC, active_days DESC</otherwise>
+        </choose>
+        LIMIT #{limit}
+    </select>
+
+    <!--
+      接口 2-12 的 rank：名次 = 提交数比自己多的成员数 + 1。
+      过滤条件与 selectUserSummaries 逐条对齐，否则个人排名会和排行榜对不上。
+    -->
+    <select id="countUsersWithMoreCommits" resultType="int">
+        SELECT COUNT(*) FROM (
+        SELECT c.user_id AS user_id
+        <include refid="statFrom"/>
+        AND c.commit_time &gt;= #{begin}
+        AND c.commit_time &lt;= #{end}
+        GROUP BY c.user_id
+        HAVING COUNT(*) &gt; #{commitCount}
+        ) t
+    </select>
+
+</mapper>
