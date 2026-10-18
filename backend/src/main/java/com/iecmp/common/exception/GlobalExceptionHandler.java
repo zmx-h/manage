@@ -5,6 +5,8 @@ import com.iecmp.common.result.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -92,6 +94,19 @@ public class GlobalExceptionHandler {
         return Result.fail(ResultCode.NOT_FOUND);
     }
 
+    /** 唯一键冲突：并发提交或重复录入。 */
+    @ExceptionHandler(DuplicateKeyException.class)
+    public Result<Void> handleDuplicateKey(DuplicateKeyException e, HttpServletRequest request) {
+        log.warn("唯一键冲突 [{} {}]：{}", request.getMethod(), request.getRequestURI(), e.getMessage());
+        return Result.fail(ResultCode.PARAM_ERROR, "数据已存在，请勿重复提交");
+    }
+
+    /** 数据完整性约束：字段超长、非空约束、外键约束等。 */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public Result<Void> handleDataIntegrityViolation(DataIntegrityViolationException e, HttpServletRequest request) {
+        log.warn("数据约束异常 [{} {}]：{}", request.getMethod(), request.getRequestURI(), e.getMessage());
+        return Result.fail(ResultCode.PARAM_ERROR, "提交的数据不符合约束，请检查字段长度与必填项");
+    }
     /** 兜底：记录完整堆栈，前端只看到「系统繁忙」。 */
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e, HttpServletRequest request) {

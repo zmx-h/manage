@@ -116,6 +116,14 @@ public abstract class AbstractRepoPlatformClient implements RepoPlatformClient {
                     .exchange((HttpRequest request, RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response) -> {
                         int status = response.getStatusCode().value();
                         String body = readBody(response);
+                        if (status == 403) {
+                            String remaining = response.getHeaders().getFirst("X-RateLimit-Remaining");
+                            String retryAfter = response.getHeaders().getFirst("Retry-After");
+                            if ("0".equals(remaining) || retryAfter != null) {
+                                throw new RepoApiException(RepoApiException.API_FAILED,
+                                        "第三方平台限流（403），稍后重试", true);
+                            }
+                        }
                         if (status == 401 || status == 403) {
                             throw new RepoApiException(RepoApiException.INVALID_TOKEN,
                                     "第三方平台返回 " + status + "，令牌无效或权限不足");

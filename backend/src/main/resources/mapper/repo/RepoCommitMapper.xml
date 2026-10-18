@@ -35,7 +35,7 @@
       （采集线程没有登录上下文，create_by 保持 NULL）。
     -->
     <insert id="insertBatch">
-        INSERT INTO repo_commit
+        INSERT IGNORE INTO repo_commit
         (project_id, user_id, commit_sha, branch, author_name, author_email,
         message, commit_time, add_lines, del_lines, is_merge, create_time, update_time)
         VALUES

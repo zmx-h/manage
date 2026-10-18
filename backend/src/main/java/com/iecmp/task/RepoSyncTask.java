@@ -3,6 +3,7 @@ package com.iecmp.task;
 import com.iecmp.repo.service.RepoSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +31,12 @@ public class RepoSyncTask {
 
     private final RepoSyncService repoSyncService;
 
-    /** 默认每日 01:00 执行，可由 {@code repo.sync.cron} 覆盖。 */
+    /**
+     * 默认每日 01:00 执行，可由 {@code repo.sync.cron} 覆盖。
+     *
+     * <p>使用异步执行器，避免长时间采集占用 Spring 默认的单线程调度池，阻塞其它定时任务。
+     */
+    @Async("iecmpAsyncExecutor")
     @Scheduled(cron = "${repo.sync.cron:0 0 1 * * ?}")
     public void syncAll() {
         log.info("定时采集任务开始");

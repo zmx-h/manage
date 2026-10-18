@@ -55,7 +55,7 @@ public class RepoProjectServiceImpl extends ServiceImpl<RepoProjectMapper, RepoP
         Long userId = LoginUserUtil.getUserId();
 
         QueryWrapper<RepoProject> wrapper = new QueryWrapper<>();
-        // 只查自己的仓库：user_id 走 idx_user_id，不依赖前端传参
+        // 只查自己的仓库：user_id 走 idx_user_create_time，不依赖前端传参
         wrapper.eq("user_id", userId);
         if (StringUtils.hasText(query.getKeyword())) {
             String keyword = query.getKeyword().trim();

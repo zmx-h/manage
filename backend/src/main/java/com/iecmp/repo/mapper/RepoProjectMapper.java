@@ -19,7 +19,7 @@ import java.util.List;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code UNIQUE KEY uk_account_repo (account_id, repo_url, deleted)}</li>
- *   <li>{@code KEY idx_user_id (user_id)}</li>
+ *   <li>{@code KEY idx_user_create_time (user_id, create_time)}</li>
  *   <li>{@code KEY idx_tracked (tracked)}</li>
  * </ul>
  *

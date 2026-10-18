@@ -617,7 +617,7 @@ CREATE TABLE `repo_project` (
   `deleted`         BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_account_repo` (`account_id`, `repo_url`, `deleted`),
-  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`),
   KEY `idx_tracked` (`tracked`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='仓库表';
 ```
@@ -734,6 +734,8 @@ CREATE TABLE `budget_period` (
   `deleted`      BIGINT        NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
   PRIMARY KEY (`id`),
   KEY `idx_year` (`year`),
+  KEY `idx_public_start` (`is_public`, `start_date`),
+  KEY `idx_public_time` (`is_public`, `public_time`),
   KEY `idx_status_public` (`status`, `is_public`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='预算周期表';
 ```
@@ -765,7 +767,8 @@ CREATE TABLE `budget_item` (
   `update_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted`       BIGINT        NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
   PRIMARY KEY (`id`),
-  KEY `idx_period_category` (`period_id`, `category`)
+  KEY `idx_period_category` (`period_id`, `category`),
+  KEY `idx_period_sort` (`period_id`, `sort_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='预算科目表';
 ```
 
@@ -809,6 +812,7 @@ CREATE TABLE `budget_apply` (
   KEY `idx_period_id` (`period_id`),
   KEY `idx_item_id` (`item_id`),
   KEY `idx_apply_user_status` (`apply_user_id`, `status`),
+  KEY `idx_apply_user_time` (`apply_user_id`, `create_time`),
   KEY `idx_attach_file_id` (`attach_file_id`),
   KEY `idx_status_create` (`status`, `create_time`),
   KEY `idx_create_time` (`create_time`)
@@ -847,6 +851,7 @@ CREATE TABLE `budget_expense` (
   PRIMARY KEY (`id`),
   KEY `idx_item_id` (`item_id`),
   KEY `idx_period_item` (`period_id`, `item_id`),
+  KEY `idx_period_date` (`period_id`, `expense_date`),
   KEY `idx_apply_id` (`apply_id`),
   KEY `idx_handler_id` (`handler_id`),
   KEY `idx_voucher_file_id` (`voucher_file_id`),
@@ -1001,8 +1006,9 @@ CREATE TABLE `asset_record` (
   `deleted`       BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
   PRIMARY KEY (`id`),
   KEY `idx_asset_time` (`asset_id`, `record_time`),
-  KEY `idx_record_type` (`record_type`),
-  KEY `idx_operator_id` (`operator_id`)
+  KEY `idx_record_time` (`record_time`),
+  KEY `idx_record_type_time` (`record_type`, `record_time`),
+  KEY `idx_operator_time` (`operator_id`, `record_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='资产变动流水表';
 ```
 
@@ -1032,7 +1038,7 @@ CREATE TABLE `asset_inventory` (
   `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted`        BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
   PRIMARY KEY (`id`),
-  KEY `idx_status` (`status`),
+  KEY `idx_status_begin_time` (`status`, `begin_time`),
   KEY `idx_begin_time` (`begin_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='盘点任务表';
 ```

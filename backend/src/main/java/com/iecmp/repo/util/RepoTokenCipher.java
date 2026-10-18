@@ -43,6 +43,9 @@ public class RepoTokenCipher {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    /** 与 repo_account.access_token 的 VARCHAR(512) 对齐。 */
+    private static final int MAX_CIPHER_TEXT_LENGTH = 512;
+
     private final RepoProperties repoProperties;
 
     /** 惰性初始化的密钥，避免每次加解密都做一次 SHA-256。 */
@@ -69,7 +72,11 @@ public class RepoTokenCipher {
             byte[] payload = new byte[iv.length + encrypted.length];
             System.arraycopy(iv, 0, payload, 0, iv.length);
             System.arraycopy(encrypted, 0, payload, iv.length, encrypted.length);
-            return Base64.getEncoder().encodeToString(payload);
+            String encoded = Base64.getEncoder().encodeToString(payload);
+            if (encoded.length() > MAX_CIPHER_TEXT_LENGTH) {
+                throw new IllegalArgumentException("访问令牌过长，加密后超出数据库存储上限");
+            }
+            return encoded;
         } catch (Exception e) {
             // 密钥或算法不可用时属于部署配置问题，直接抛出而不是降级存明文
             throw new IllegalStateException("访问令牌加密失败：" + e.getMessage(), e);

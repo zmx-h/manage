@@ -294,15 +294,14 @@ public class RepoAccountServiceImpl extends ServiceImpl<RepoAccountMapper, RepoA
 
     /** 校验令牌并取回平台账号信息，把平台异常翻译成业务错误码。 */
     private RepoUserInfo fetchUserOrThrow(String platform, String plainToken) {
-        RepoPlatformClient client = clientRegistry.get(platform);
         try {
+            RepoPlatformClient client = clientRegistry.get(platform);
             return client.fetchUser(plainToken);
         } catch (RepoApiException e) {
             // 20003 令牌无效 / 20007 平台调用失败，前端据此给不同的引导文案
             throw new BusinessException(RepoPlatformClientRegistry.toErrorCode(e).getCode(), e.getMessage());
         }
     }
-
     /** 取账户并校验归属，接口 2-04 / 2-05 共用。 */
     private RepoAccount requireOwnAccount(Long accountId) {
         RepoAccount account = baseMapper.selectById(accountId);

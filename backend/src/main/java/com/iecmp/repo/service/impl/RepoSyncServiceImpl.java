@@ -68,12 +68,22 @@ import java.util.UUID;
 public class RepoSyncServiceImpl implements RepoSyncService {
 
     /** 比较并删除锁的 Lua 脚本：只删自己加的锁，避免误删其它实例的。 */
+    private static final RedisScript<Long> RENEW_LOCK_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                    + "return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end",
+            Long.class);
+
     private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>(
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
             Long.class);
 
     /** 错误信息落库前的截断长度，与 {@code repo_sync_log.error_msg} 一致。 */
     private static final int ERROR_MSG_MAX_LENGTH = 1024;
+    private static final long LOCK_RENEW_INTERVAL_MS = 60_000L;
+
+    /** 当前线程持有的采集锁；sleep() 时按分钟续期，避免长任务执行中锁过期。 */
+    private static final ThreadLocal<String> LOCK_TOKEN = new ThreadLocal<>();
+    private static final ThreadLocal<Long> LOCK_LAST_RENEW = new ThreadLocal<>();
 
     private final RepoAccountMapper repoAccountMapper;
     private final RepoProjectMapper repoProjectMapper;
@@ -127,6 +137,8 @@ public class RepoSyncServiceImpl implements RepoSyncService {
             String lockToken = acquireLock();
             if (lockToken == null) {
                 log.info("代码仓库采集锁被占用，账户 {} 的即时采集跳过，等待下次定时采集", accountId);
+                // 绑定/换令牌时已把 sync_status 置为「采集中」，这里必须回退，避免前端一直显示采集中
+                markAccount(accountId, SyncStatusEnum.NOT_SYNCED, null);
                 return;
             }
             try {
@@ -145,6 +157,9 @@ public class RepoSyncServiceImpl implements RepoSyncService {
     public int pullProjects(RepoAccount account, String plainToken) {
         RepoPlatformClient client = clientRegistry.get(account.getPlatform());
         List<RepoInfo> repos = client.fetchRepos(plainToken);
+        // 拉取仓库列表只发一次第三方请求，处理列表期间不会长时间占用连接；
+        // 这里顺手续一次锁，避免仓库很多时后续逐仓库采集尚未开始锁已到期。
+        renewLockIfNeeded();
 
         // 与 uk_account_repo (account_id, repo_url, deleted) 对齐，按仓库地址判断是否已入库
         Map<String, RepoProject> existing = new LinkedHashMap<>();
@@ -183,6 +198,8 @@ public class RepoSyncServiceImpl implements RepoSyncService {
                 repoProjectMapper.updateById(project);
             }
             saved++;
+            // 纯数据库操作，不 sleep；只在需要时续锁，避免仓库很多时锁提前过期
+            renewLockIfNeeded();
         }
         return saved;
     }
@@ -227,6 +244,7 @@ public class RepoSyncServiceImpl implements RepoSyncService {
      */
     private int syncOneAccount(RepoAccount account, boolean fullSync, SyncTypeEnum syncType) {
         long start = System.currentTimeMillis();
+        LocalDateTime syncStartedAt = LocalDateTime.now();
         int newCommits = 0;
         markAccount(account.getId(), SyncStatusEnum.SYNCING, null);
         try {
@@ -248,19 +266,24 @@ public class RepoSyncServiceImpl implements RepoSyncService {
                 sleep();
             }
 
-            markAccount(account.getId(), SyncStatusEnum.SYNC_OK, LocalDateTime.now());
+            // 水位用「本次采集开始时间」，不能用完成时间：
+            // 若 01:00 开始、01:10 完成，01:05 产生但 01:04 已查询过的提交会被完成时间永久跳过。
+            markAccount(account.getId(), SyncStatusEnum.SYNC_OK, syncStartedAt);
             writeLog(account, syncType, SyncResultEnum.SUCCESS, newCommits, start, null);
             log.info("账户 {}（{}）采集完成：{} 个仓库，新增 {} 条提交",
                     account.getId(), account.getAccountName(), projectCount, newCommits);
             return newCommits;
         } catch (Exception e) {
-            // last_sync_time 保持不变，下次增量采集会从同一个起点重试，不会漏数据
-            markAccount(account.getId(), SyncStatusEnum.SYNC_FAILED, null);
+            // 只有明确的令牌失效才停用账户；限流/网络/5xx 不改账户状态，避免误伤
+            if (e instanceof RepoApiException apiException && apiException.isInvalidToken()) {
+                markAccountStatus(account.getId(), 0, SyncStatusEnum.SYNC_FAILED);
+            } else {
+                markAccount(account.getId(), SyncStatusEnum.SYNC_FAILED, null);
+            }
             writeLog(account, syncType, SyncResultEnum.FAILED, newCommits, start, describe(e));
             throw e instanceof RuntimeException runtime ? runtime : new IllegalStateException(e);
         }
     }
-
     /** 采集单个仓库：拉分支 → 逐分支拉提交 → 去重 → 补齐行数 → 批量入库。 */
     private int collectProject(RepoAccount account, RepoProject project, String plainToken, LocalDateTime since) {
         RepoPlatformClient client = clientRegistry.get(account.getPlatform());
@@ -275,7 +298,7 @@ public class RepoSyncServiceImpl implements RepoSyncService {
                 branches = List.of(project.getDefaultBranch());
             }
 
-            Set<String> known = loadKnownShas(project.getId());
+            Set<String> known = loadKnownShas(project.getId(), since);
             Map<String, RepoCommit> fresh = new LinkedHashMap<>();
             for (String branch : branches) {
                 List<RepoCommitInfo> commits = client.fetchCommits(plainToken, owner, repo, branch, since);
@@ -306,33 +329,54 @@ public class RepoSyncServiceImpl implements RepoSyncService {
     /**
      * 补齐提交的增删行数。
      *
-     * <p>两家平台的提交<b>列表</b>接口都不保证返回行数统计，而 {@code add_lines} / {@code del_lines}
-     * 是接口 2-09 与 2-12 的对外字段，不能长期为 0。这里只对<b>本次新入库</b>的提交补详情，
-     * 老提交不会重复调用；不需要时可通过 {@code repo.sync.commit-detail=false} 整体关掉。
+     * <p>列表接口不保证返回行数统计，因此需要按 SHA 再查一次详情。任一详情失败时本次仓库采集整体失败，
+     * 不推进账户的采集水位，下一轮会重新拉取并补齐；否则以 0 入库后会被 loadKnownShas 当成已完成，
+     * 永远不再补。关闭 {@code repo.sync.commit-detail} 时按 0 入库。
      */
     private void fillCommitDetail(RepoPlatformClient client, String plainToken, String owner, String repo,
                                   Map<String, RepoCommit> fresh) {
-        if (!repoProperties.getSync().isCommitDetail() || fresh.isEmpty()) {
+        if (fresh.isEmpty()) {
             return;
         }
-        for (RepoCommit entity : new ArrayList<>(fresh.values())) {
+        if (!repoProperties.getSync().isCommitDetail()) {
+            normalizeLineCounts(fresh);
+            return;
+        }
+
+        List<String> detailFailed = new ArrayList<>();
+        for (RepoCommit entity : fresh.values()) {
             if (entity.getAddLines() != null && entity.getDelLines() != null) {
                 continue;
             }
             try {
                 RepoCommitInfo detail = client.fetchCommitDetail(plainToken, owner, repo, entity.getCommitSha());
-                if (detail != null) {
+                if (detail == null) {
+                    detailFailed.add(entity.getCommitSha());
+                } else {
                     entity.setAddLines(detail.getAddLines());
                     entity.setDelLines(detail.getDelLines());
                 }
             } catch (RepoApiException e) {
-                // 单条详情取不到不该让整个仓库失败，行数留 0 即可
-                log.debug("提交 {} 详情获取失败：{}", entity.getCommitSha(), e.getMessage());
+                if (e.isInvalidToken()) {
+                    throw e;
+                }
+                // 限流/网络/单仓库权限问题：本次先不入库，下次增量采集再补
+                log.debug("提交 {} 详情获取失败，本次跳过：{}", entity.getCommitSha(), e.getMessage());
+                detailFailed.add(entity.getCommitSha());
             }
             sleep();
         }
-        // 行数列为 NOT NULL，取不到就落 0
-        for (RepoCommit entity : fresh.values()) {
+
+        if (!detailFailed.isEmpty()) {
+            throw new RepoApiException(RepoApiException.API_FAILED,
+                    "有 " + detailFailed.size() + " 条提交详情获取失败，本次不推进采集水位，下一轮重试", true);
+        }
+        normalizeLineCounts(fresh);
+    }
+
+    /** add_lines / del_lines 是 NOT NULL，取不到详情时落 0。 */
+    private void normalizeLineCounts(Map<String, RepoCommit> commits) {
+        for (RepoCommit entity : commits.values()) {
             if (entity.getAddLines() == null) {
                 entity.setAddLines(0);
             }
@@ -341,16 +385,16 @@ public class RepoSyncServiceImpl implements RepoSyncService {
             }
         }
     }
-
     private RepoCommit toEntity(RepoAccount account, RepoProject project, RepoCommitInfo info, String branch) {
         RepoCommit entity = new RepoCommit();
         entity.setProjectId(project.getId());
         entity.setUserId(account.getUserId());
-        entity.setCommitSha(info.getCommitSha());
+        entity.setCommitSha(truncate(info.getCommitSha(), 64));
         entity.setBranch(truncate(branch, 128));
-        entity.setAuthorName(info.getAuthorName());
-        entity.setAuthorEmail(info.getAuthorEmail());
-        entity.setMessage(info.getMessage());
+        // 平台返回的作者名/邮箱/提交信息长度不可控，按数据库列宽截断，避免严格模式下整批插入失败
+        entity.setAuthorName(truncate(info.getAuthorName(), 64));
+        entity.setAuthorEmail(truncate(info.getAuthorEmail(), 128));
+        entity.setMessage(truncate(info.getMessage(), 1024));
         entity.setCommitTime(info.getCommitTime());
         entity.setAddLines(info.getAddLines());
         entity.setDelLines(info.getDelLines());
@@ -358,11 +402,19 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         return entity;
     }
 
-    /** 已入库的提交 SHA，用于跳过重复提交，避免为老提交反复查详情。 */
-    private Set<String> loadKnownShas(Long projectId) {
-        List<RepoCommit> existing = repoCommitMapper.selectList(new LambdaQueryWrapper<RepoCommit>()
+    /**
+     * 已入库的提交 SHA，用于跳过重复提交，避免为老提交反复查详情。
+     *
+     * <p>增量采集只加载本次时间窗口内的 SHA；更早的重复提交由唯一键兜底，不会重复入库。
+     */
+    private Set<String> loadKnownShas(Long projectId, LocalDateTime since) {
+        LambdaQueryWrapper<RepoCommit> wrapper = new LambdaQueryWrapper<RepoCommit>()
                 .select(RepoCommit::getCommitSha)
-                .eq(RepoCommit::getProjectId, projectId));
+                .eq(RepoCommit::getProjectId, projectId);
+        if (since != null) {
+            wrapper.ge(RepoCommit::getCommitTime, since);
+        }
+        List<RepoCommit> existing = repoCommitMapper.selectList(wrapper);
         Set<String> shas = new HashSet<>(Math.max(16, existing.size() * 2));
         for (RepoCommit commit : existing) {
             shas.add(commit.getCommitSha());
@@ -423,6 +475,14 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         repoAccountMapper.updateById(update);
     }
 
+    /** 同时更新账户启用状态与采集状态（令牌明确失效时使用）。 */
+    private void markAccountStatus(Long accountId, Integer status, SyncStatusEnum syncStatus) {
+        RepoAccount update = new RepoAccount();
+        update.setId(accountId);
+        update.setStatus(status);
+        update.setSyncStatus(syncStatus.getValue());
+        repoAccountMapper.updateById(update);
+    }
     private void markProject(Long projectId, SyncStatusEnum status) {
         RepoProject update = new RepoProject();
         update.setId(projectId);
@@ -464,7 +524,12 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(
                 CacheKeyConstants.REPO_SYNC_LOCK, token,
                 Duration.ofSeconds(repoProperties.getSync().getLockTtlSeconds()));
-        return Boolean.TRUE.equals(acquired) ? token : null;
+        if (Boolean.TRUE.equals(acquired)) {
+            LOCK_TOKEN.set(token);
+            LOCK_LAST_RENEW.set(System.currentTimeMillis());
+            return token;
+        }
+        return null;
     }
 
     /** 释放采集锁：比对 value 后再删，避免锁过期后误删别的实例刚拿到的锁。 */
@@ -474,10 +539,37 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         } catch (Exception e) {
             // 锁有 TTL 兜底，释放失败不影响正确性
             log.warn("释放采集锁失败：{}", e.getMessage());
+        } finally {
+            LOCK_TOKEN.remove();
+            LOCK_LAST_RENEW.remove();
+        }
+    }
+
+    /** 长任务心跳：每 60 秒把当前线程持有的锁续到完整 TTL。 */
+    private void renewLockIfNeeded() {
+        String token = LOCK_TOKEN.get();
+        if (token == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = LOCK_LAST_RENEW.get();
+        if (last != null && now - last < LOCK_RENEW_INTERVAL_MS) {
+            return;
+        }
+        try {
+            stringRedisTemplate.execute(RENEW_LOCK_SCRIPT,
+                    List.of(CacheKeyConstants.REPO_SYNC_LOCK),
+                    token, String.valueOf(repoProperties.getSync().getLockTtlSeconds()));
+            LOCK_LAST_RENEW.set(now);
+        } catch (Exception e) {
+            // 续期失败不改变业务结果，锁本身仍有 TTL 兜底
+            log.warn("采集锁续期失败：{}", e.getMessage());
         }
     }
 
     private void sleep() {
+        // 即使未配置请求间隔，也要检查是否需要续锁，否则长任务会因锁过期被其他实例抢占。
+        renewLockIfNeeded();
         long interval = repoProperties.getSync().getRequestIntervalMs();
         if (interval <= 0) {
             return;
