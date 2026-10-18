@@ -5,14 +5,15 @@ import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
 import com.iecmp.repo.dto.RepoSyncDTO;
+import com.iecmp.repo.enums.SyncTypeEnum;
 import com.iecmp.repo.query.RepoAccountPageQuery;
 import com.iecmp.repo.query.RepoStatRankQuery;
 import com.iecmp.repo.query.RepoStatTrendQuery;
 import com.iecmp.repo.query.RepoSyncLogPageQuery;
 import com.iecmp.repo.service.RepoAccountService;
 import com.iecmp.repo.service.RepoCommitService;
-import com.iecmp.repo.service.RepoProjectService;
 import com.iecmp.repo.service.RepoSyncLogService;
+import com.iecmp.repo.service.RepoSyncService;
 import com.iecmp.repo.vo.RepoAccountPageVO;
 import com.iecmp.repo.vo.RepoStatRankVO;
 import com.iecmp.repo.vo.RepoStatTrendVO;
@@ -28,14 +29,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 管理端-仓库与采集（repo 模块）。
  *
  * <p>覆盖接口：2-13、2-14、2-15、2-16、2-17，共 5 个。
  *
- * <p><b>骨架说明</b>：所有方法体都是占位实现，统一返回
- * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
- * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
+ * <p><b>返回值形状</b>：2-14 / 2-15 的 {@code data} 在接口文档里是数组，返回
+ * {@code Result<List<...>>}；2-13 / 2-16 是分页结构，2-17 是单个对象。
+ *
+ * <p><b>补采是同步执行</b>：接口 2-17 会阻塞到所有账户采完再返回，
+ * 为的是把 {@code successCount / failCount / commitCount / costMs} 如实填进响应。
+ * 账户较多时这个请求会很久——抢不到锁会立刻以 20006 返回，不会出现两个补采互相等待。
  *
  * @author IECMP 后端组
  */
@@ -44,14 +50,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AdminRepoController {
 
-    /** RepoAccount 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
     private final RepoAccountService repoAccountService;
-    /** RepoProject 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
-    private final RepoProjectService repoProjectService;
-    /** RepoCommit 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
     private final RepoCommitService repoCommitService;
-    /** RepoSyncLog 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
     private final RepoSyncLogService repoSyncLogService;
+    private final RepoSyncService repoSyncService;
 
     /**
      * 2-13 账户与仓库分页（后台）。
@@ -64,8 +66,7 @@ public class AdminRepoController {
     @RequiresPerm("repo:account:list")
     @GetMapping("/admin/repo/account/page")
     public Result<PageResult<RepoAccountPageVO>> getRepoAccountPage(@ParameterObject RepoAccountPageQuery query) {
-        // TODO 待实现（接口 2-13）：见《IECMP-接口开发文档-v1.6.md》接口 2-13
-        return Result.todo("2-13");
+        return Result.success(repoAccountService.pageAccounts(query));
     }
 
     /**
@@ -78,9 +79,8 @@ public class AdminRepoController {
     @Operation(summary = "2-14 成员贡献排行（后台）", description = "按指定指标返回全中心成员的贡献排行，用于贡献度看板")
     @RequiresPerm("repo:stat:list")
     @GetMapping("/admin/repo/stat/rank")
-    public Result<RepoStatRankVO> getRepoStatRank(@ParameterObject RepoStatRankQuery query) {
-        // TODO 待实现（接口 2-14）：见《IECMP-接口开发文档-v1.6.md》接口 2-14
-        return Result.todo("2-14");
+    public Result<List<RepoStatRankVO>> getRepoStatRank(@ParameterObject RepoStatRankQuery query) {
+        return Result.success(repoCommitService.rank(query));
     }
 
     /**
@@ -93,9 +93,8 @@ public class AdminRepoController {
     @Operation(summary = "2-15 中心提交趋势（后台）", description = "按时间粒度返回全中心的提交趋势与参与人数")
     @RequiresPerm("repo:stat:list")
     @GetMapping("/admin/repo/stat/trend")
-    public Result<RepoStatTrendVO> getRepoStatTrend(@ParameterObject RepoStatTrendQuery query) {
-        // TODO 待实现（接口 2-15）：见《IECMP-接口开发文档-v1.6.md》接口 2-15
-        return Result.todo("2-15");
+    public Result<List<RepoStatTrendVO>> getRepoStatTrend(@ParameterObject RepoStatTrendQuery query) {
+        return Result.success(repoCommitService.centerTrend(query));
     }
 
     /**
@@ -109,8 +108,7 @@ public class AdminRepoController {
     @RequiresPerm("repo:sync:list")
     @GetMapping("/admin/repo/sync/log/page")
     public Result<PageResult<RepoSyncLogPageVO>> getRepoSyncLogPage(@ParameterObject RepoSyncLogPageQuery query) {
-        // TODO 待实现（接口 2-16）：见《IECMP-接口开发文档-v1.6.md》接口 2-16
-        return Result.todo("2-16");
+        return Result.success(repoSyncLogService.pageLogs(query));
     }
 
     /**
@@ -125,7 +123,9 @@ public class AdminRepoController {
     @OperLog(module = "管理端-仓库与采集", value = "手动补采（后台）")
     @PostMapping("/admin/repo/sync")
     public Result<RepoSyncVO> postRepoSync(@RequestBody @Valid RepoSyncDTO dto) {
-        // TODO 待实现（接口 2-17）：见《IECMP-接口开发文档-v1.6.md》接口 2-17
-        return Result.todo("2-17");
+        // fullSync 只认 1，其余（含 null）都按增量走：增量是默认语义，
+        // 而「全量重拉」是会真的多打几十次第三方接口的动作，不该被一个没传的字段触发
+        boolean fullSync = Integer.valueOf(1).equals(dto.getFullSync());
+        return Result.success(repoSyncService.syncAccounts(dto.getAccountIds(), fullSync, SyncTypeEnum.MANUAL));
     }
 }

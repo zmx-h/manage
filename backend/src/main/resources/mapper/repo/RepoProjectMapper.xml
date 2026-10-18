@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  模块二 · 仓库表聚合 SQL。
+
+  本表本身的分页、筛选都是单表条件，用 BaseMapper + LambdaQueryWrapper 即可；
+  这里只放「一次分组算出多个仓库的提交数」这类必须下推到数据库的聚合。
+-->
+<mapper namespace="com.iecmp.repo.mapper.RepoProjectMapper">
+
+    <!--
+      接口 2-07 的 commitCount：接口文档 8.3.1 要求「列表查询时统一批量聚合，避免逐行查询」。
+      与统计口径保持一致，排除合并提交；tracked 在这里不加——列表要展示每个仓库
+      「已采集的提交总数」，用户需要看到关闭统计的仓库到底采了多少。
+    -->
+    <select id="selectCommitCounts" resultType="com.iecmp.repo.model.RepoIdCount">
+        SELECT c.project_id AS id,
+        COUNT(*) AS count
+        FROM repo_commit c
+        WHERE c.deleted = 0
+        AND c.is_merge = 0
+        AND c.project_id IN
+        <foreach collection="projectIds" item="projectId" open="(" separator="," close=")">
+            #{projectId}
+        </foreach>
+        GROUP BY c.project_id
+    </select>
+
+    <!-- 接口 2-03 的 projectCount：一次分组算出当前用户全部账户的仓库数。 -->
+    <select id="selectProjectCountsByAccount" resultType="com.iecmp.repo.model.RepoIdCount">
+        SELECT p.account_id AS id,
+        COUNT(*) AS count
+        FROM repo_project p
+        WHERE p.deleted = 0
+        AND p.account_id IN
+        <foreach collection="accountIds" item="accountId" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+        GROUP BY p.account_id
+    </select>
+
+</mapper>

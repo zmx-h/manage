@@ -28,6 +28,14 @@ public final class CacheKeyConstants {
     /** 验证码同 IP 限流：{@code iecmp:limit:captcha:{ip}}，10 次/分钟。 */
     public static final String LIMIT_CAPTCHA_PREFIX = "iecmp:limit:captcha:";
 
+    /**
+     * 代码仓库采集互斥锁：{@code iecmp:repo:sync:lock}。
+     *
+     * <p>架构文档 4.6 节实现要点 1：多实例部署时必须保证同一时刻只有一个实例在采集，
+     * 用 Redis {@code SETNX} 实现；定时任务与接口 2-17 手动补采共用同一把锁。
+     */
+    public static final String REPO_SYNC_LOCK = "iecmp:repo:sync:lock";
+
     /** 各类 TTL（秒）。 */
     public static final long CAPTCHA_TTL_SECONDS = 300L;
 

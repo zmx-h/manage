@@ -122,3 +122,43 @@ iecmp:
       - /user/honor/alumni/page
       - /user/honor/stat
       - /user/video/list
+
+# ----------------------------------------------------------------------------
+#  模块二：代码仓库关联（架构文档 7.3 节 / 接口文档第 8 章）
+#  repo.crypto.aes-key 属于密钥，只在 application-{dev|prod}.yml 里给
+# ----------------------------------------------------------------------------
+repo:
+  contribution:
+    # 贡献度公式（接口文档 8.4.4）：提交数 × commit + 活跃天数 × active-day + 代码行数 × code-line
+    # 「代码行数」口径为 add_lines + del_lines（总变更行数），见 RepoProperties 说明
+    weight:
+      commit: 1
+      active-day: 2
+      code-line: 0.01
+
+  sync:
+    cron: "0 0 1 * * ?"           # 每日 01:00；同时用于计算接口 2-06 的 nextSyncTime
+    lock-ttl-seconds: 1800        # 采集分布式锁 TTL，进程崩溃后自动释放
+    request-interval-ms: 200      # 相邻两次第三方请求的间隔，按仓库维度串行限流
+    commit-detail: true           # 是否再查一次提交详情补齐增删行数；关闭后 add_lines/del_lines 恒为 0
+    max-pages: 20                 # 单个列表接口最多翻页数，防异常分页死循环
+    connect-timeout-ms: 5000
+    read-timeout-ms: 15000
+    max-retries: 2                # 第三方调用重试次数（不含首次），仅对 429/5xx 生效
+    incremental-overlap-minutes: 5 # 增量采集向前回溯的分钟数，重复部分由 (project_id, commit_sha) 去重
+
+  platform:
+    # 顺序即接口 2-01 的返回顺序（与接口文档 8.2.1 的示例响应一致：GitHub 在前）
+    # 这里列出的平台如果缺少对应的客户端实现，不会下发到 2-01，也不会被采集
+    - code: github
+      name: GitHub
+      token-url: https://github.com/settings/tokens
+      token-tip: "需勾选 repo 与 read:user 权限"
+      api-base: https://api.github.com
+      page-size: 100
+    - code: gitee
+      name: Gitee
+      token-url: https://gitee.com/personal_access_tokens
+      token-tip: "需勾选 projects 与 pull_requests 权限"
+      api-base: https://gitee.com/api/v5
+      page-size: 100
