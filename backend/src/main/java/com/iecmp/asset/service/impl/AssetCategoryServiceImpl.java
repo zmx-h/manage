@@ -53,26 +53,39 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
         Map<Long, List<AssetCategory>> parentMap = all.stream()
                 .collect(Collectors.groupingBy(c -> c.getParentId() == null ? 0L : c.getParentId()));
 
-        // 各分类资产数量（含子分类）：先统计各分类直接资产数，再递归累加
+        // 各分类资产数量（含子分类）：一次分组查询拿到直接资产数，再递归累加
         Map<Long, Integer> directCount = new HashMap<>();
-        for (AssetCategory c : all) {
-            Long cnt = assetInfoMapper.selectCount(
-                    Wrappers.lambdaQuery(AssetInfo.class).eq(AssetInfo::getCategoryId, c.getId()));
-            directCount.put(c.getId(), cnt == null ? 0 : cnt.intValue());
+        List<Map<String, Object>> countRows = assetInfoMapper.selectMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<AssetInfo>()
+                        .select("category_id", "COUNT(*) AS cnt")
+                        .isNotNull("category_id")
+                        .groupBy("category_id"));
+        for (Map<String, Object> countRow : countRows) {
+            Object categoryId = countRow.get("category_id");
+            Object count = countRow.get("cnt");
+            if (categoryId instanceof Number id && count instanceof Number value) {
+                directCount.put(id.longValue(), value.intValue());
+            }
         }
 
         // 根节点：parentId 为 null 或 0
         List<AssetCategory> roots = parentMap.getOrDefault(0L, Collections.emptyList());
 
+        Set<Long> visited = new HashSet<>();
         return roots.stream()
-                .map(c -> buildNode(c, parentMap, directCount))
+                .map(c -> buildNode(c, parentMap, directCount, visited))
+                .filter(c -> c != null)
                 .toList();
     }
 
-    /** 递归构建树节点，assetCount 为自身 + 所有子孙资产数之和。 */
+    /** 递归构建树节点，assetCount 为自身 + 所有子孙资产数之和；visited 防止脏数据成环。 */
     private AssetCategoryTreeVO buildNode(AssetCategory category,
                                           Map<Long, List<AssetCategory>> parentMap,
-                                          Map<Long, Integer> directCount) {
+                                          Map<Long, Integer> directCount,
+                                          Set<Long> visited) {
+        if (!visited.add(category.getId())) {
+            return null;
+        }
         AssetCategoryTreeVO vo = new AssetCategoryTreeVO();
         vo.setCategoryId(category.getId());
         vo.setName(category.getName());
@@ -82,7 +95,8 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
         int assetCount = directCount.getOrDefault(category.getId(), 0);
         if (children != null && !children.isEmpty()) {
             List<AssetCategoryTreeVO> childVOs = children.stream()
-                    .map(c -> buildNode(c, parentMap, directCount))
+                    .map(c -> buildNode(c, parentMap, directCount, visited))
+                    .filter(c -> c != null)
                     .toList();
             vo.setChildren(childVOs);
             for (AssetCategoryTreeVO child : childVOs) {

@@ -1,6 +1,7 @@
 package com.iecmp.asset.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import lombok.Data;
@@ -24,5 +25,6 @@ public class AssetStatusDTO implements Serializable {
 
     /** 变更原因，如「风扇异响送修」 */
     @Schema(description = "变更原因，如「风扇异响送修」")
+    @Size(max = 500, message = "备注长度不能超过 500 个字符")
     private String remark;
 }

@@ -118,57 +118,64 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void audit(Long id, AssetBorrowAuditDTO dto) {
-        // 1. 借用记录存在性校验
+        Integer auditStatus = dto.getAuditStatus();
+        if (auditStatus == null || (auditStatus != 1 && auditStatus != 2)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "审核状态只能为 1 通过或 2 驳回");
+        }
+
         AssetBorrow borrow = this.getById(id);
         if (borrow == null) {
             throw new BusinessException(AssetErrorCode.E40008.getCode(), AssetErrorCode.E40008.getMsg());
         }
-
-        // 2. 仅「待审核」可审核
         if (!BorrowStatusEnum.PENDING.getValue().equals(borrow.getStatus())) {
             throw new BusinessException(AssetErrorCode.E40017.getCode(), AssetErrorCode.E40017.getMsg());
         }
+        if (BorrowTypeEnum.of(borrow.getBorrowType()) == null) {
+            throw new BusinessException(AssetErrorCode.E40017.getCode(), AssetErrorCode.E40017.getMsg());
+        }
 
-        Integer auditStatus = dto.getAuditStatus();
         LocalDateTime now = LocalDateTime.now();
         Long currentUserId = UserContext.getUserIdOrDefault();
 
-        // 驳回：只更新借用记录
         if (auditStatus == 2) {
-            borrow.setStatus(BorrowStatusEnum.REJECTED.getValue());
-            borrow.setAuditUserId(currentUserId);
-            borrow.setAuditTime(now);
-            borrow.setAuditRemark(dto.getAuditRemark());
-            this.updateById(borrow);
+            boolean updated = this.update(Wrappers.<AssetBorrow>lambdaUpdate()
+                    .eq(AssetBorrow::getId, id)
+                    .eq(AssetBorrow::getStatus, BorrowStatusEnum.PENDING.getValue())
+                    .set(AssetBorrow::getStatus, BorrowStatusEnum.REJECTED.getValue())
+                    .set(AssetBorrow::getAuditUserId, currentUserId)
+                    .set(AssetBorrow::getAuditTime, now)
+                    .set(AssetBorrow::getAuditRemark, dto.getAuditRemark()));
+            if (!updated) {
+                throw new BusinessException(AssetErrorCode.E40017.getCode(), AssetErrorCode.E40017.getMsg());
+            }
             return;
         }
 
-        // 通过：校验资产状态，更新借用、资产，写入流水
         AssetInfo asset = assetInfoMapper.selectById(borrow.getAssetId());
         if (asset == null) {
             throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
         }
-        // 并发保护：仅「在用」或「闲置」可借出
-        if (!AssetStatusEnum.IN_USE.getValue().equals(asset.getStatus())
-                && !AssetStatusEnum.IDLE.getValue().equals(asset.getStatus())) {
+
+        boolean updated = this.update(Wrappers.<AssetBorrow>lambdaUpdate()
+                .eq(AssetBorrow::getId, id)
+                .eq(AssetBorrow::getStatus, BorrowStatusEnum.PENDING.getValue())
+                .set(AssetBorrow::getStatus, BorrowStatusEnum.APPROVED.getValue())
+                .set(AssetBorrow::getAuditUserId, currentUserId)
+                .set(AssetBorrow::getAuditTime, now)
+                .set(AssetBorrow::getAuditRemark, dto.getAuditRemark()));
+        if (!updated) {
+            throw new BusinessException(AssetErrorCode.E40017.getCode(), AssetErrorCode.E40017.getMsg());
+        }
+
+        int assetRows = assetInfoMapper.update(null, Wrappers.<AssetInfo>lambdaUpdate()
+                .eq(AssetInfo::getId, asset.getId())
+                .in(AssetInfo::getStatus, AssetStatusEnum.IN_USE.getValue(), AssetStatusEnum.IDLE.getValue())
+                .set(AssetInfo::getStatus, AssetStatusEnum.BORROWED.getValue()));
+        if (assetRows == 0) {
             throw new BusinessException(AssetErrorCode.E40006.getCode(), AssetErrorCode.E40006.getMsg());
         }
 
         boolean isReceive = BorrowTypeEnum.RECEIVE.getValue().equals(borrow.getBorrowType());
-
-        borrow.setStatus(BorrowStatusEnum.APPROVED.getValue());
-        borrow.setAuditUserId(currentUserId);
-        borrow.setAuditTime(now);
-        borrow.setAuditRemark(dto.getAuditRemark());
-        this.updateById(borrow);
-
-        // 领用 -> 资产报废；借用 -> 资产借出
-        AssetInfo update = new AssetInfo();
-        update.setId(asset.getId());
-        update.setStatus(isReceive ? AssetStatusEnum.SCRAPPED.getValue() : AssetStatusEnum.BORROWED.getValue());
-        assetInfoMapper.updateById(update);
-
-        // 写入流水
         AssetRecord record = new AssetRecord();
         record.setAssetId(asset.getId());
         record.setRecordType(isReceive ? AssetRecordTypeEnum.RECEIVE.getValue() : AssetRecordTypeEnum.BORROW.getValue());
@@ -181,7 +188,6 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
         record.setRemark(isReceive ? "领用审核通过" : "借用审核通过");
         assetRecordService.save(record);
     }
-
     // ============================== 4-22 管理员代归还 ==============================
 
     @Override
@@ -195,19 +201,44 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AssetBorrowVO apply(AssetBorrowDTO dto) {
-        AssetInfo asset = assetInfoMapper.selectById(dto.getAssetId());
+        BorrowTypeEnum borrowType = BorrowTypeEnum.of(dto.getBorrowType());
+        if (borrowType == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "借用类型只能为 1 借用或 2 领用");
+        }
+
+        // 锁定资产行，串行化同一资产的申请，避免并发产生多条待审核记录
+        AssetInfo asset = assetInfoMapper.selectOne(Wrappers.<AssetInfo>lambdaQuery()
+                .eq(AssetInfo::getId, dto.getAssetId())
+                .last("FOR UPDATE"));
         if (asset == null) {
             throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
         }
-        // 已报废资产不可借用/领用
-        if (AssetStatusEnum.SCRAPPED.getValue().equals(asset.getStatus())) {
+        Long pending = this.count(Wrappers.lambdaQuery(AssetBorrow.class)
+                .eq(AssetBorrow::getAssetId, dto.getAssetId())
+                .eq(AssetBorrow::getStatus, BorrowStatusEnum.PENDING.getValue()));
+        if (pending != null && pending > 0) {
+            throw new BusinessException(AssetErrorCode.E40019.getCode(), AssetErrorCode.E40019.getMsg());
+        }
+        AssetStatusEnum assetStatus = AssetStatusEnum.of(asset.getStatus());
+        if (AssetStatusEnum.BORROWED.equals(assetStatus)) {
+            throw new BusinessException(AssetErrorCode.E40007.getCode(), AssetErrorCode.E40007.getMsg());
+        }
+        if (AssetStatusEnum.SCRAPPED.equals(assetStatus)) {
             throw new BusinessException(AssetErrorCode.E40015.getCode(), AssetErrorCode.E40015.getMsg());
+        }
+        if (!AssetStatusEnum.IN_USE.equals(assetStatus) && !AssetStatusEnum.IDLE.equals(assetStatus)) {
+            throw new BusinessException(AssetErrorCode.E40006.getCode(), AssetErrorCode.E40006.getMsg());
+        }
+
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
         }
 
         AssetBorrow borrow = new AssetBorrow();
         borrow.setAssetId(dto.getAssetId());
-        borrow.setUserId(UserContext.getUserIdOrDefault());
-        borrow.setBorrowType(dto.getBorrowType());
+        borrow.setUserId(currentUserId);
+        borrow.setBorrowType(borrowType.getValue());
         borrow.setPurpose(dto.getPurpose());
         borrow.setBorrowTime(LocalDateTime.now());
         borrow.setExpectReturnTime(parseDateTime(dto.getExpectReturnTime()));
@@ -218,7 +249,6 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
         vo.setBorrowId(borrow.getId());
         return vo;
     }
-
     // ============================== 4-06 我的借用记录 ==============================
 
     @Override
@@ -277,52 +307,57 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
             throw new BusinessException(AssetErrorCode.E40008.getCode(), AssetErrorCode.E40008.getMsg());
         }
 
-        // 领用无需归还
         if (BorrowTypeEnum.RECEIVE.getValue().equals(borrow.getBorrowType())) {
             throw new BusinessException(AssetErrorCode.E40011.getCode(), AssetErrorCode.E40011.getMsg());
         }
-
-        // 仅「已通过」或「已逾期」可归还
         if (!BorrowStatusEnum.APPROVED.getValue().equals(borrow.getStatus())
                 && !BorrowStatusEnum.OVERDUE.getValue().equals(borrow.getStatus())) {
             throw new BusinessException(AssetErrorCode.E40010.getCode(), AssetErrorCode.E40010.getMsg());
         }
-
-        // 用户端：只能归还本人
         if (ownerUserId != null && !ownerUserId.equals(borrow.getUserId())) {
             throw new BusinessException(AssetErrorCode.E40009.getCode(), AssetErrorCode.E40009.getMsg());
         }
 
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
         LocalDateTime now = LocalDateTime.now();
 
-        // 更新借用记录
-        borrow.setStatus(BorrowStatusEnum.RETURNED.getValue());
-        borrow.setActualReturnTime(now);
-        this.updateById(borrow);
-
-        // 恢复资产状态为「在用」
-        AssetInfo asset = assetInfoMapper.selectById(borrow.getAssetId());
-        if (asset != null) {
-            AssetInfo update = new AssetInfo();
-            update.setId(asset.getId());
-            update.setStatus(AssetStatusEnum.IN_USE.getValue());
-            assetInfoMapper.updateById(update);
+        boolean updated = this.update(Wrappers.<AssetBorrow>lambdaUpdate()
+                .eq(AssetBorrow::getId, id)
+                .in(AssetBorrow::getStatus,
+                        BorrowStatusEnum.APPROVED.getValue(), BorrowStatusEnum.OVERDUE.getValue())
+                .set(AssetBorrow::getStatus, BorrowStatusEnum.RETURNED.getValue())
+                .set(AssetBorrow::getActualReturnTime, now));
+        if (!updated) {
+            throw new BusinessException(AssetErrorCode.E40010.getCode(), AssetErrorCode.E40010.getMsg());
         }
 
-        // 写入归还流水
+        AssetInfo asset = assetInfoMapper.selectById(borrow.getAssetId());
+        if (asset == null) {
+            throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
+        }
+        int assetRows = assetInfoMapper.update(null, Wrappers.<AssetInfo>lambdaUpdate()
+                .eq(AssetInfo::getId, asset.getId())
+                .eq(AssetInfo::getStatus, AssetStatusEnum.BORROWED.getValue())
+                .set(AssetInfo::getStatus, AssetStatusEnum.IN_USE.getValue()));
+        if (assetRows == 0) {
+            throw new BusinessException(AssetErrorCode.E40006.getCode(), AssetErrorCode.E40006.getMsg());
+        }
+
         AssetRecord record = new AssetRecord();
         record.setAssetId(borrow.getAssetId());
         record.setRecordType(AssetRecordTypeEnum.RETURN.getValue());
         record.setFromUserId(borrow.getUserId());
-        record.setToUserId(asset == null ? null : asset.getKeeperId());
+        record.setToUserId(asset.getKeeperId());
         record.setFromLocation(null);
-        record.setToLocation(asset == null ? null : asset.getLocation());
+        record.setToLocation(asset.getLocation());
         record.setRecordTime(now);
-        record.setOperatorId(UserContext.getUserIdOrDefault());
+        record.setOperatorId(currentUserId);
         record.setRemark(remark);
         assetRecordService.save(record);
     }
-
     /** 构建管理端分页查询条件。 */
     private LambdaQueryWrapper<AssetBorrow> buildPageWrapper(AssetBorrowPageQuery query) {
         LambdaQueryWrapper<AssetBorrow> wrapper = Wrappers.lambdaQuery();
@@ -341,28 +376,18 @@ public class AssetBorrowServiceImpl extends ServiceImpl<AssetBorrowMapper, Asset
         // keyword：资产编号 / 资产名称 / 借用人姓名
         if (query.getKeyword() != null && !query.getKeyword().isBlank()) {
             String kw = query.getKeyword().trim();
-            List<Long> matchedAssetIds = assetInfoMapper.selectList(
-                    Wrappers.lambdaQuery(AssetInfo.class)
-                            .select(AssetInfo::getId)
-                            .like(AssetInfo::getAssetNo, kw)
-                            .or().like(AssetInfo::getName, kw))
-                    .stream().map(AssetInfo::getId).toList();
-            List<Long> matchedUserIds = sysUserService.list(
-                    Wrappers.lambdaQuery(SysUser.class)
-                            .select(SysUser::getId)
-                            .like(SysUser::getRealName, kw))
-                    .stream().map(SysUser::getId).toList();
-            if (matchedAssetIds.isEmpty() && matchedUserIds.isEmpty()) {
-                wrapper.eq(AssetBorrow::getId, -1L); // 无匹配直接返回空
-            } else {
-                wrapper.and(w -> {
-                    if (!matchedAssetIds.isEmpty()) w.in(AssetBorrow::getAssetId, matchedAssetIds);
-                    if (!matchedUserIds.isEmpty()) {
-                        if (!matchedAssetIds.isEmpty()) w.or();
-                        w.in(AssetBorrow::getUserId, matchedUserIds);
-                    }
-                });
+            if (kw.length() > 100) {
+                throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "关键字长度不能超过 100 个字符");
             }
+            String likeValue = "%" + kw + "%";
+            wrapper.and(w -> w
+                    .apply("EXISTS (SELECT 1 FROM asset_info ai "
+                            + "WHERE ai.id = asset_borrow.asset_id AND ai.deleted = 0 "
+                            + "AND (ai.asset_no LIKE {0} OR ai.name LIKE {0}))", likeValue)
+                    .or()
+                    .apply("EXISTS (SELECT 1 FROM sys_user u "
+                            + "WHERE u.id = asset_borrow.user_id AND u.deleted = 0 "
+                            + "AND u.real_name LIKE {0})", likeValue));
         }
 
         wrapper.orderByDesc(AssetBorrow::getBorrowTime);
