@@ -35,5 +35,5 @@ public class AssetCategoryTreeVO implements Serializable {
 
     /** 子分类 */
     @Schema(description = "子分类")
-    private List<String> children;
+    private List<AssetCategoryTreeVO> children;
 }

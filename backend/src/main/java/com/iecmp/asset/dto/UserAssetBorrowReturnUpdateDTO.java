@@ -1,6 +1,7 @@
 package com.iecmp.asset.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import lombok.Data;
 
@@ -18,5 +19,6 @@ public class UserAssetBorrowReturnUpdateDTO implements Serializable {
 
     /** 归还备注，如「外壳有轻微磨损」 */
     @Schema(description = "归还备注，如「外壳有轻微磨损」")
+    @Size(max = 500, message = "备注长度不能超过 500 个字符")
     private String remark;
 }

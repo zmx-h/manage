@@ -1,6 +1,7 @@
 package com.iecmp.asset.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import lombok.Data;
 
@@ -22,9 +23,11 @@ public class AssetAssignDTO implements Serializable {
 
     /** 存放位置描述，最长 128 字 */
     @Schema(description = "存放位置描述，最长 128 字")
+    @Size(max = 128, message = "存放位置长度不能超过 128 个字符")
     private String location;
 
     /** 备注 */
     @Schema(description = "备注")
+    @Size(max = 500, message = "备注长度不能超过 500 个字符")
     private String remark;
 }

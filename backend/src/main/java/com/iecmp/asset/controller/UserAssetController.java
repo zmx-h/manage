@@ -64,8 +64,7 @@ public class UserAssetController {
     @Operation(summary = "4-01 资产分页（前台）", description = "成员端分页查询资产台账，一物一码、单件单记录")
     @GetMapping("/user/asset/page")
     public Result<PageResult<UserAssetPageVO>> getAssetPage(@ParameterObject UserAssetPageQuery query) {
-        // TODO 待实现（接口 4-01）：见《IECMP-接口开发文档-v1.6.md》接口 4-01
-        return Result.todo("4-01");
+        return Result.success(assetInfoService.userPage(query));
     }
 
     /**
@@ -78,8 +77,7 @@ public class UserAssetController {
     @Operation(summary = "4-02 资产详情（前台）", description = "查询资产完整信息与最近变动流水，用于详情页")
     @GetMapping("/user/asset/{id}")
     public Result<UserAssetDetailVO> getAsset(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 4-02）：见《IECMP-接口开发文档-v1.6.md》接口 4-02
-        return Result.todo("4-02");
+        return Result.success(assetInfoService.userDetail(id));
     }
 
     /**
@@ -91,9 +89,8 @@ public class UserAssetController {
      */
     @Operation(summary = "4-03 资产分类树", description = "返回资产分类树，用于资产列表的分类筛选与表单选择")
     @GetMapping("/user/asset/category/tree")
-    public Result<AssetCategoryTreeVO> getAssetCategoryTree() {
-        // TODO 待实现（接口 4-03）：见《IECMP-接口开发文档-v1.6.md》接口 4-03
-        return Result.todo("4-03");
+    public Result<java.util.List<AssetCategoryTreeVO>> getAssetCategoryTree() {
+        return Result.success(assetCategoryService.tree());
     }
 
     /**
@@ -106,8 +103,7 @@ public class UserAssetController {
     @Operation(summary = "4-04 资产总览统计", description = "返回资产的数量与金额总览，用于成员端资产页头部卡片")
     @GetMapping("/user/asset/stat/overview")
     public Result<AssetStatOverviewVO> getAssetStatOverview() {
-        // TODO 待实现（接口 4-04）：见《IECMP-接口开发文档-v1.6.md》接口 4-04
-        return Result.todo("4-04");
+        return Result.success(assetInfoService.statOverview());
     }
 
     /**
@@ -121,8 +117,7 @@ public class UserAssetController {
     @OperLog(module = "用户端-资产台账与借用", value = "借用 / 领用申请")
     @PostMapping("/user/asset/borrow")
     public Result<AssetBorrowVO> postAssetBorrow(@RequestBody @Valid AssetBorrowDTO dto) {
-        // TODO 待实现（接口 4-05）：见《IECMP-接口开发文档-v1.6.md》接口 4-05
-        return Result.todo("4-05");
+        return Result.success(assetBorrowService.apply(dto));
     }
 
     /**
@@ -135,8 +130,7 @@ public class UserAssetController {
     @Operation(summary = "4-06 我的借用记录", description = "分页查询当前登录用户的借用 / 领用记录")
     @GetMapping("/user/asset/borrow/my/page")
     public Result<PageResult<AssetBorrowMyPageVO>> getAssetBorrowMyPage(@ParameterObject AssetBorrowMyPageQuery query) {
-        // TODO 待实现（接口 4-06）：见《IECMP-接口开发文档-v1.6.md》接口 4-06
-        return Result.todo("4-06");
+        return Result.success(assetBorrowService.myPage(query));
     }
 
     /**
@@ -150,7 +144,7 @@ public class UserAssetController {
     @OperLog(module = "用户端-资产台账与借用", value = "归还登记（本人）")
     @PutMapping("/user/asset/borrow/{id}/return")
     public Result<Void> putAssetBorrowReturn(@PathVariable("id") Long id, @RequestBody @Valid UserAssetBorrowReturnUpdateDTO dto) {
-        // TODO 待实现（接口 4-07）：见《IECMP-接口开发文档-v1.6.md》接口 4-07
-        return Result.todo("4-07");
+        assetBorrowService.userReturn(id, dto);
+        return Result.success();
     }
 }

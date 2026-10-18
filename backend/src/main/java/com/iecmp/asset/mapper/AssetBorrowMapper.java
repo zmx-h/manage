@@ -14,8 +14,8 @@ import org.apache.ibatis.annotations.Mapper;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_asset_status (asset_id, status)}</li>
- *   <li>{@code KEY idx_user_status (user_id, status)}</li>
- *   <li>{@code KEY idx_status (status)}</li>
+ *   <li>{@code KEY idx_user_status_time (user_id, status, borrow_time)}</li>
+ *   <li>{@code KEY idx_status_time (status, borrow_time)}</li>
  *   <li>{@code KEY idx_expect_return_time (expect_return_time)}</li>
  * </ul>
  *

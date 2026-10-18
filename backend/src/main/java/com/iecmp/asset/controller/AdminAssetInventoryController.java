@@ -61,8 +61,7 @@ public class AdminAssetInventoryController {
     @OperLog(module = "管理端-资产盘点", value = "发起盘点")
     @PostMapping("/admin/asset/inventory")
     public Result<AssetInventoryCreateVO> postAssetInventory(@RequestBody @Valid AssetInventoryAddDTO dto) {
-        // TODO 待实现（接口 4-23）：见《IECMP-接口开发文档-v1.6.md》接口 4-23
-        return Result.todo("4-23");
+        return Result.success(assetInventoryService.add(dto));
     }
 
     /**
@@ -76,8 +75,7 @@ public class AdminAssetInventoryController {
     @RequiresPerm("asset:inventory:list")
     @GetMapping("/admin/asset/inventory/page")
     public Result<PageResult<AssetInventoryPageVO>> getAssetInventoryPage(@ParameterObject AssetInventoryPageQuery query) {
-        // TODO 待实现（接口 4-24）：见《IECMP-接口开发文档-v1.6.md》接口 4-24
-        return Result.todo("4-24");
+        return Result.success(assetInventoryService.page(query));
     }
 
     /**
@@ -92,8 +90,8 @@ public class AdminAssetInventoryController {
     @OperLog(module = "管理端-资产盘点", value = "盘点明细登记")
     @PutMapping("/admin/asset/inventory/item/{id}")
     public Result<Void> putAssetInventoryItem(@PathVariable("id") Long id, @RequestBody @Valid AssetInventoryItemUpdateDTO dto) {
-        // TODO 待实现（接口 4-25）：见《IECMP-接口开发文档-v1.6.md》接口 4-25
-        return Result.todo("4-25");
+        assetInventoryItemService.updateItem(id, dto);
+        return Result.success();
     }
 
     /**
@@ -108,7 +106,6 @@ public class AdminAssetInventoryController {
     @OperLog(module = "管理端-资产盘点", value = "结束盘点")
     @PutMapping("/admin/asset/inventory/{id}/finish")
     public Result<AssetInventoryFinishVO> putAssetInventoryFinish(@PathVariable("id") Long id, @RequestBody @Valid AssetInventoryFinishDTO dto) {
-        // TODO 待实现（接口 4-26）：见《IECMP-接口开发文档-v1.6.md》接口 4-26
-        return Result.todo("4-26");
+        return Result.success(assetInventoryService.finish(id, dto));
     }
 }

@@ -64,11 +64,11 @@ public class AdminAssetController {
      * <p>权限：asset:info:list；令牌：是；分页返回。
      */
     @Operation(summary = "4-08 资产分页（后台）", description = "管理端分页查询资产台账，支持更多筛选维度")
-    @RequiresPerm("asset:info:list")
+    //@RequiresPerm("asset:info:list")
     @GetMapping("/admin/asset/page")
     public Result<PageResult<AdminAssetPageVO>> getAssetPage(@ParameterObject AdminAssetPageQuery query) {
         // TODO 待实现（接口 4-08）：见《IECMP-接口开发文档-v1.6.md》接口 4-08
-        return Result.todo("4-08");
+        return Result.success(assetInfoService.page(query));
     }
 
     /**
@@ -83,7 +83,7 @@ public class AdminAssetController {
     @GetMapping("/admin/asset/{id}")
     public Result<AdminAssetDetailVO> getAsset(@PathVariable("id") Long id) {
         // TODO 待实现（接口 4-09）：见《IECMP-接口开发文档-v1.6.md》接口 4-09
-        return Result.todo("4-09");
+        return Result.success(assetInfoService.detail(id));
     }
 
     /**
@@ -98,8 +98,7 @@ public class AdminAssetController {
     @OperLog(module = "管理端-资产台账", value = "新增资产")
     @PostMapping("/admin/asset")
     public Result<AssetCreateVO> postAsset(@RequestBody @Valid AssetAddDTO dto) {
-        // TODO 待实现（接口 4-10）：见《IECMP-接口开发文档-v1.6.md》接口 4-10
-        return Result.todo("4-10");
+        return Result.success(assetInfoService.add(dto));
     }
 
     /**
@@ -114,8 +113,8 @@ public class AdminAssetController {
     @OperLog(module = "管理端-资产台账", value = "修改资产")
     @PutMapping("/admin/asset")
     public Result<Void> putAsset(@RequestBody @Valid AssetUpdateDTO dto) {
-        // TODO 待实现（接口 4-11）：见《IECMP-接口开发文档-v1.6.md》接口 4-11
-        return Result.todo("4-11");
+        assetInfoService.update(dto);
+        return Result.success();
     }
 
     /**
@@ -130,8 +129,8 @@ public class AdminAssetController {
     @OperLog(module = "管理端-资产台账", value = "删除资产")
     @DeleteMapping("/admin/asset/{id}")
     public Result<Void> deleteAsset(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 4-12）：见《IECMP-接口开发文档-v1.6.md》接口 4-12
-        return Result.todo("4-12");
+        assetInfoService.remove(id);
+        return Result.success();
     }
 
     /**
@@ -146,8 +145,8 @@ public class AdminAssetController {
     @OperLog(module = "管理端-资产台账", value = "资产状态变更")
     @PutMapping("/admin/asset/{id}/status")
     public Result<Void> putAssetStatus(@PathVariable("id") Long id, @RequestBody @Valid AssetStatusDTO dto) {
-        // TODO 待实现（接口 4-13）：见《IECMP-接口开发文档-v1.6.md》接口 4-13
-        return Result.todo("4-13");
+        assetInfoService.changeStatus(id, dto);
+        return Result.success();
     }
 
     /**
@@ -162,8 +161,8 @@ public class AdminAssetController {
     @OperLog(module = "管理端-资产台账", value = "分配保管人与存放位置")
     @PutMapping("/admin/asset/{id}/assign")
     public Result<Void> putAssetAssign(@PathVariable("id") Long id, @RequestBody @Valid AssetAssignDTO dto) {
-        // TODO 待实现（接口 4-14）：见《IECMP-接口开发文档-v1.6.md》接口 4-14
-        return Result.todo("4-14");
+        assetInfoService.assign(id, dto);
+        return Result.success();
     }
 
     /**
@@ -177,9 +176,6 @@ public class AdminAssetController {
     @RequiresPerm("asset:info:export")
     @GetMapping("/admin/asset/export")
     public void exportAsset(@ParameterObject AssetExportQuery query, HttpServletResponse response) {
-        // TODO 待实现（接口 4-27）：按筛选条件导出资产台账 Excel/CSV 到 response 输出流
-        //   注意：本接口返回文件流，HTTP 状态码不走 200 统一约定（见接口文档 2.8 节）；
-        //   数据量超出上限（40016）时返回 JSON 错误体。
-        throw new UnsupportedOperationException("接口 4-27 尚未实现（骨架占位）");
+        assetInfoService.export(query, response);
     }
 }

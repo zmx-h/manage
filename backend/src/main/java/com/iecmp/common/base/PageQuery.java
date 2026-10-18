@@ -31,4 +31,17 @@ public class PageQuery implements Serializable {
     /** 排序，格式 {字段名} {asc|desc}，字段白名单由各接口限制。 */
     @Schema(description = "排序，格式 {字段名} {asc|desc}", example = "create_time desc")
     private String orderBy;
+
+    /** 页码兜底：null、0、负数统一按第 1 页处理。 */
+    public Integer getPageNum() {
+        return pageNum == null || pageNum < 1 ? 1 : pageNum;
+    }
+
+    /** 每页条数兜底：null 取 10，越界值收敛到 1~100。 */
+    public Integer getPageSize() {
+        if (pageSize == null) {
+            return 10;
+        }
+        return Math.min(Math.max(pageSize, 1), 100);
+    }
 }
