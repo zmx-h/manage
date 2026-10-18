@@ -103,29 +103,29 @@
           AND e.deleted = 0
     </select>
 
-    <!-- 3-09 我的经费汇总 -->
+    <!-- 3-09 我的经费汇总：按时间范围走索引，空集聚合归零 -->
     <select id="selectMyStat" resultType="com.iecmp.budget.vo.BudgetStatMyVO">
         SELECT
             COUNT(*) AS applyTotal,
             COALESCE(SUM(a.amount), 0) AS applyAmount,
-            SUM(a.status = 1) AS approvedCount,
-            COALESCE(SUM(CASE WHEN a.status = 1 THEN a.amount END), 0) AS approvedAmount,
-            SUM(a.status = 2) AS rejectedCount,
-            SUM(a.status = 0) AS pendingCount,
-            SUM(a.status = 3) AS cancelledCount,
+            COALESCE(SUM(CASE WHEN a.status = 1 THEN 1 ELSE 0 END), 0) AS approvedCount,
+            COALESCE(SUM(CASE WHEN a.status = 1 THEN a.amount ELSE 0 END), 0) AS approvedAmount,
+            COALESCE(SUM(CASE WHEN a.status = 2 THEN 1 ELSE 0 END), 0) AS rejectedCount,
+            COALESCE(SUM(CASE WHEN a.status = 0 THEN 1 ELSE 0 END), 0) AS pendingCount,
+            COALESCE(SUM(CASE WHEN a.status = 3 THEN 1 ELSE 0 END), 0) AS cancelledCount,
             COALESCE((
                 SELECT SUM(e.amount)
                 FROM budget_expense e
-                JOIN budget_apply a2 ON e.apply_id = a2.id
+                INNER JOIN budget_apply a2 ON e.apply_id = a2.id AND a2.deleted = 0
                 WHERE a2.apply_user_id = #{applyUserId}
-                  AND YEAR(a2.create_time) = #{year}
+                  AND a2.create_time &gt;= #{beginTime}
+                  AND a2.create_time &lt; #{endTime}
                   AND e.deleted = 0
-                  AND a2.deleted = 0
             ), 0) AS expenseAmount
         FROM budget_apply a
         WHERE a.apply_user_id = #{applyUserId}
           AND a.deleted = 0
-          AND YEAR(a.create_time) = #{year}
+          AND a.create_time &gt;= #{beginTime}
+          AND a.create_time &lt; #{endTime}
     </select>
-
 </mapper>

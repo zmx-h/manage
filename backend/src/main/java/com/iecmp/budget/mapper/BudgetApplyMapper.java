@@ -8,6 +8,8 @@ import com.iecmp.budget.vo.BudgetStatMyVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
+
 import java.util.List;
 
 /**
@@ -22,6 +24,7 @@ import java.util.List;
  *   <li>{@code KEY idx_period_id (period_id)}</li>
  *   <li>{@code KEY idx_item_id (item_id)}</li>
  *   <li>{@code KEY idx_apply_user_status (apply_user_id, status)}</li>
+ *   <li>{@code KEY idx_apply_user_time (apply_user_id, create_time)}</li>
  *   <li>{@code KEY idx_attach_file_id (attach_file_id)}</li>
  *   <li>{@code KEY idx_status_create (status, create_time)}</li>
  *   <li>{@code KEY idx_create_time (create_time)}</li>
@@ -56,5 +59,6 @@ public interface BudgetApplyMapper extends BaseMapper<BudgetApply> {
 
     /** 3-09 我的经费汇总 */
     BudgetStatMyVO selectMyStat(@Param("applyUserId") Long applyUserId,
-                                @Param("year") String year);
+                                @Param("beginTime") LocalDateTime beginTime,
+                                @Param("endTime") LocalDateTime endTime);
 }

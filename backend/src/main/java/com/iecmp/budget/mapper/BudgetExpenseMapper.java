@@ -19,6 +19,7 @@ import java.util.List;
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_item_id (item_id)}</li>
  *   <li>{@code KEY idx_period_item (period_id, item_id)}</li>
+ *   <li>{@code KEY idx_period_date (period_id, expense_date)}</li>
  *   <li>{@code KEY idx_apply_id (apply_id)}</li>
  *   <li>{@code KEY idx_handler_id (handler_id)}</li>
  *   <li>{@code KEY idx_voucher_file_id (voucher_file_id)}</li>
@@ -30,6 +31,8 @@ import java.util.List;
 @Mapper
 public interface BudgetExpenseMapper extends BaseMapper<BudgetExpense> {
 
+    /** 3-04 未传 periodId 时取最新公示周期。 */
+    Long selectLatestPublicPeriodId();
     /** 3-04 支出明细公示分页 */
     List<UserBudgetExpensePageVO> selectPublicPage(@Param("periodId") Long periodId,
                                                    @Param("itemId") Long itemId,

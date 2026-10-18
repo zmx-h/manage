@@ -40,9 +40,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserBudgetApplyController {
 
     private final BudgetApplyService budgetApplyService;
-    private final BudgetItemService budgetItemService;
-    private final BudgetPeriodService budgetPeriodService;
-    private final BudgetExpenseService budgetExpenseService;
 
     @Operation(summary = "3-05 提交预算申请", description = "成员提交经费申请；预算周期**执行期间可随时提交**，无需等待集中征集")
     @OperLog(module = "用户端-预算申请", value = "提交预算申请")

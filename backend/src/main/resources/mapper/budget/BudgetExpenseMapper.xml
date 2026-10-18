@@ -3,7 +3,18 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.iecmp.budget.mapper.BudgetExpenseMapper">
 
-    <!-- 3-04 支出明细公示分页 -->
+    <!-- 3-04 未传周期时取最新公示周期 -->
+    <select id="selectLatestPublicPeriodId" resultType="long">
+        SELECT p.id
+        FROM budget_period p
+        WHERE p.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
+        ORDER BY p.public_time DESC, p.start_date DESC, p.id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 3-04 支出明细公示分页：只能查看已公示且非草稿周期的支出 -->
     <select id="selectPublicPage" resultType="com.iecmp.budget.vo.UserBudgetExpensePageVO">
         SELECT
             e.id AS expenseId,
@@ -17,11 +28,12 @@
             u.real_name AS handlerName,
             e.remark
         FROM budget_expense e
-        LEFT JOIN budget_period p ON e.period_id = p.id
-        LEFT JOIN budget_item i ON e.item_id = i.id
-        LEFT JOIN sys_user u ON e.handler_id = u.id
-        WHERE 1 = 1
-          AND e.deleted = 0
+        INNER JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE e.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
         <if test="periodId != null">
             AND e.period_id = #{periodId}
         </if>
@@ -37,7 +49,7 @@
         <if test="endDate != null">
             AND e.expense_date &lt;= #{endDate}
         </if>
-        ORDER BY e.expense_date DESC
+        ORDER BY e.expense_date DESC, e.id DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 
@@ -45,10 +57,10 @@
     <select id="countPublicPage" resultType="long">
         SELECT COUNT(*)
         FROM budget_expense e
-        LEFT JOIN budget_period p ON e.period_id = p.id
-        LEFT JOIN budget_item i ON e.item_id = i.id
-        WHERE 1 = 1
-          AND e.deleted = 0
+        INNER JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        WHERE e.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
         <if test="periodId != null">
             AND e.period_id = #{periodId}
         </if>

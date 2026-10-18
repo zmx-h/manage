@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -20,6 +21,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
+
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     private final TokenService tokenService;
     private final JwtProperties jwtProperties;
@@ -100,16 +103,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
         for (String pattern : patterns) {
-            if (pattern == null || pattern.isEmpty()) {
-                continue;
-            }
-            if (pattern.endsWith("/**")) {
-                String prefix = pattern.substring(0, pattern.length() - 3);
-                boolean hit = path.equals(prefix) || path.startsWith(prefix + "/");
-                if (hit) {
-                    return true;
-                }
-            } else if (pattern.equals(path)) {
+            if (pattern != null && !pattern.isEmpty() && PATH_MATCHER.match(pattern, path)) {
                 return true;
             }
         }

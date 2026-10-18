@@ -67,6 +67,8 @@
         FROM budget_period p
         WHERE p.id = #{id}
           AND p.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
     </select>
 
 </mapper>

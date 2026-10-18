@@ -18,6 +18,7 @@ import java.util.List;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_period_category (period_id, category)}</li>
+ *   <li>{@code KEY idx_period_sort (period_id, sort_no)}</li>
  * </ul>
  *
  * @author IECMP 后端组

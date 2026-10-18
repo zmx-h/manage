@@ -19,6 +19,8 @@ import java.util.List;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_year (year)}</li>
+ *   <li>{@code KEY idx_public_start (is_public, start_date)}</li>
+ *   <li>{@code KEY idx_public_time (is_public, public_time)}</li>
  *   <li>{@code KEY idx_status_public (status, is_public)}</li>
  * </ul>
  *
