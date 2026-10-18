@@ -2,7 +2,15 @@ package com.iecmp.budget.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetApply;
+import com.iecmp.budget.vo.BudgetApplyDetailVO;
+import com.iecmp.budget.vo.BudgetApplyMyPageVO;
+import com.iecmp.budget.vo.BudgetStatMyVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.time.LocalDateTime;
+
+import java.util.List;
 
 /**
  * 预算申请表（{@code budget_apply}）数据访问接口。
@@ -16,6 +24,7 @@ import org.apache.ibatis.annotations.Mapper;
  *   <li>{@code KEY idx_period_id (period_id)}</li>
  *   <li>{@code KEY idx_item_id (item_id)}</li>
  *   <li>{@code KEY idx_apply_user_status (apply_user_id, status)}</li>
+ *   <li>{@code KEY idx_apply_user_time (apply_user_id, create_time)}</li>
  *   <li>{@code KEY idx_attach_file_id (attach_file_id)}</li>
  *   <li>{@code KEY idx_status_create (status, create_time)}</li>
  *   <li>{@code KEY idx_create_time (create_time)}</li>
@@ -25,4 +34,31 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface BudgetApplyMapper extends BaseMapper<BudgetApply> {
+
+    /** 3-06 我的申请分页 */
+    List<BudgetApplyMyPageVO> selectMyPage(@Param("applyUserId") Long applyUserId,
+                                           @Param("status") Integer status,
+                                           @Param("periodId") Long periodId,
+                                           @Param("beginTime") String beginTime,
+                                           @Param("endTime") String endTime,
+                                           @Param("offset") Integer offset,
+                                           @Param("pageSize") Integer pageSize);
+
+    /** 3-06 配套总数 */
+    Long countMyPage(@Param("applyUserId") Long applyUserId,
+                     @Param("status") Integer status,
+                     @Param("periodId") Long periodId,
+                     @Param("beginTime") String beginTime,
+                     @Param("endTime") String endTime);
+
+    /** 3-07 申请详情 */
+    BudgetApplyDetailVO selectDetailById(@Param("applyId") Long applyId);
+
+    /** 3-07 关联支出 */
+    List<BudgetApplyDetailVO.ExpenseListVO> selectExpenseByApplyId(@Param("applyId") Long applyId);
+
+    /** 3-09 我的经费汇总 */
+    BudgetStatMyVO selectMyStat(@Param("applyUserId") Long applyUserId,
+                                @Param("beginTime") LocalDateTime beginTime,
+                                @Param("endTime") LocalDateTime endTime);
 }

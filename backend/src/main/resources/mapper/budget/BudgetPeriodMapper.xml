@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.budget.mapper.BudgetPeriodMapper">
+
+    <!-- 3-01 公示预算周期分页 -->
+    <select id="selectPublicPage" resultType="com.iecmp.budget.vo.UserBudgetPeriodPageVO">
+        SELECT
+        p.id AS periodId,
+        p.title,
+        p.year,
+        p.total_amount AS totalAmount,
+        p.used_amount AS usedAmount,
+        (p.total_amount - p.used_amount) AS remainAmount,
+        ROUND(p.used_amount / NULLIF(p.total_amount, 0) * 100, 2) AS executionRate,
+        p.start_date AS startDate,
+        p.end_date AS endDate,
+        p.status,
+        p.public_time AS publicTime
+        FROM budget_period p
+        WHERE p.is_public = 1
+        AND p.status &lt;&gt; 0
+        AND p.deleted = 0
+        <if test="year != null and year != ''">
+            AND p.year = #{year}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        ORDER BY p.start_date DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-01 配套总数 -->
+    <select id="countPublicPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_period p
+        WHERE p.is_public = 1
+        AND p.status &lt;&gt; 0
+        AND p.deleted = 0
+        <if test="year != null and year != ''">
+            AND p.year = #{year}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+    </select>
+
+    <!-- 3-02 预算周期详情 -->
+    <select id="selectDetailById" resultType="com.iecmp.budget.vo.BudgetPeriodDetailVO">
+        SELECT
+            p.id AS periodId,
+            p.title,
+            p.year,
+            p.total_amount AS totalAmount,
+            p.used_amount AS usedAmount,
+            (p.total_amount - p.used_amount) AS remainAmount,
+            ROUND(p.used_amount / NULLIF(p.total_amount, 0) * 100, 2) AS executionRate,
+            p.start_date AS startDate,
+            p.end_date AS endDate,
+            p.description,
+            p.status,
+            p.public_time AS publicTime,
+            (SELECT COUNT(*) FROM budget_item i WHERE i.period_id = p.id AND i.deleted = 0) AS itemCount,
+            (SELECT COUNT(*) FROM budget_apply a WHERE a.period_id = p.id AND a.deleted = 0) AS applyCount,
+            (SELECT COUNT(*) FROM budget_expense e WHERE e.period_id = p.id AND e.deleted = 0) AS expenseCount
+        FROM budget_period p
+        WHERE p.id = #{id}
+          AND p.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
+    </select>
+
+</mapper>

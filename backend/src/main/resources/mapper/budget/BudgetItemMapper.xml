@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.budget.mapper.BudgetItemMapper">
+
+    <!-- 3-03 预算科目明细 -->
+    <select id="selectByPeriodId" resultType="com.iecmp.budget.vo.BudgetPeriodItemListVO">
+        SELECT
+            i.id AS itemId,
+            i.name,
+            i.category,
+            i.budget_amount AS budgetAmount,
+            i.used_amount AS usedAmount,
+            ROUND(i.used_amount / NULLIF(i.budget_amount, 0) * 100, 2) AS executionRate,
+            i.remark
+        FROM budget_item i
+        WHERE i.period_id = #{periodId}
+          AND i.deleted = 0
+        ORDER BY i.sort_no ASC
+    </select>
+
+    <!-- 3-05 锁住科目行，防并发超支 -->
+    <select id="selectForUpdate" resultType="com.iecmp.budget.entity.BudgetItem">
+        SELECT id, period_id, name, category, budget_amount, used_amount, sort_no, remark,
+               create_by, create_time, update_by, update_time, deleted
+        FROM budget_item
+        WHERE id = #{id}
+          AND deleted = 0
+        FOR UPDATE
+    </select>
+
+</mapper>

@@ -2,7 +2,11 @@ package com.iecmp.budget.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetExpense;
+import com.iecmp.budget.vo.UserBudgetExpensePageVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 支出记录表（{@code budget_expense}）数据访问接口。
@@ -15,6 +19,7 @@ import org.apache.ibatis.annotations.Mapper;
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_item_id (item_id)}</li>
  *   <li>{@code KEY idx_period_item (period_id, item_id)}</li>
+ *   <li>{@code KEY idx_period_date (period_id, expense_date)}</li>
  *   <li>{@code KEY idx_apply_id (apply_id)}</li>
  *   <li>{@code KEY idx_handler_id (handler_id)}</li>
  *   <li>{@code KEY idx_voucher_file_id (voucher_file_id)}</li>
@@ -25,4 +30,22 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface BudgetExpenseMapper extends BaseMapper<BudgetExpense> {
+
+    /** 3-04 未传 periodId 时取最新公示周期。 */
+    Long selectLatestPublicPeriodId();
+    /** 3-04 支出明细公示分页 */
+    List<UserBudgetExpensePageVO> selectPublicPage(@Param("periodId") Long periodId,
+                                                   @Param("itemId") Long itemId,
+                                                   @Param("keyword") String keyword,
+                                                   @Param("beginDate") String beginDate,
+                                                   @Param("endDate") String endDate,
+                                                   @Param("offset") Integer offset,
+                                                   @Param("pageSize") Integer pageSize);
+
+    /** 3-04 配套总数 */
+    Long countPublicPage(@Param("periodId") Long periodId,
+                         @Param("itemId") Long itemId,
+                         @Param("keyword") String keyword,
+                         @Param("beginDate") String beginDate,
+                         @Param("endDate") String endDate);
 }
