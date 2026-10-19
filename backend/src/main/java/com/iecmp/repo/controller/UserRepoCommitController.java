@@ -28,7 +28,7 @@ import java.util.List;
  * <p><b>返回值形状</b>：2-10 的 {@code data} 在接口文档里是数组（折线图的点集），
  * 2-11 与 2-12 是单个对象，因此前者返回 {@code Result<List<...>>}。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Tag(name = "用户端-提交与贡献")
 @RestController

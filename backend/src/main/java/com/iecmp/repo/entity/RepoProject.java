@@ -16,7 +16,7 @@ import lombok.EqualsAndHashCode;
  * <p>公共审计字段（id / create_by / create_time / update_by / update_time / deleted）
  * 继承自 {@link BaseEntity}，此处只声明业务字段。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

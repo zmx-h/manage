@@ -23,7 +23,7 @@ import java.util.List;
  *   <li>{@code KEY idx_tracked (tracked)}</li>
  * </ul>
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Mapper
 public interface RepoProjectMapper extends BaseMapper<RepoProject> {

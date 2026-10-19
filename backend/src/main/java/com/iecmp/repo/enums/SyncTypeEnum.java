@@ -10,7 +10,7 @@ import lombok.Getter;
  * <p>可直接用 {@code @EnumValue}（MyBatis-Plus）或自定义 TypeHandler 与数据库 integer 互转；
  * 前端展示文案也可由 {@code sys_dict} 数据字典（接口 8-04）下发。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Getter
 public enum SyncTypeEnum {

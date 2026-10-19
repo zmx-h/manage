@@ -33,7 +33,7 @@ import java.util.List;
  *   <li>{@code KEY idx_commit_time (commit_time)}</li>
  * </ul>
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Mapper
 public interface RepoCommitMapper extends BaseMapper<RepoCommit> {
