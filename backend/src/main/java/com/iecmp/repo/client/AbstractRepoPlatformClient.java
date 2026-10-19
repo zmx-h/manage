@@ -171,7 +171,13 @@ public abstract class AbstractRepoPlatformClient implements RepoPlatformClient {
         }
         String trimmed = text.trim();
         try {
-            return java.time.OffsetDateTime.parse(trimmed).toLocalDateTime();
+            // 必须按「同一时刻」换算到本机时区再取 LocalDateTime。
+            // GitHub 的时间带 Z（UTC），直接 toLocalDateTime() 会把 02:00Z 存成 02:00，
+            // 而系统里其它时间都是 GMT+8 的墙上时间，等于凭空提前 8 小时——
+            // 跨零点的提交会被算到前一天，热力图与按日统计随之错位。
+            return java.time.OffsetDateTime.parse(trimmed)
+                    .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                    .toLocalDateTime();
         } catch (Exception ignored) {
             // 继续尝试其它格式
         }

@@ -103,15 +103,24 @@
         AND c.commit_time &gt;= #{begin}
         AND c.commit_time &lt;= #{end}
         GROUP BY c.user_id, u.real_name, u.grade, u.avatar_url
+        <!--
+          排序必须写聚合表达式而不能复用 SELECT 里的别名：add_lines / del_lines 在 repo_commit 里
+          是真实列名，MySQL 解析 ORDER BY 时优先当成列而不是别名，在默认开启的 ONLY_FULL_GROUP_BY 下
+          直接报「not in GROUP BY clause」。commit_count / active_days 没有同名源列，本来也能用别名，
+          但统一写成聚合表达式可以避免以后加同名列时再踩一次。
+        -->
         ORDER BY
         <choose>
-            <when test="sortField == 2">active_days DESC, commit_count DESC</when>
-            <when test="sortField == 3">(add_lines + del_lines) DESC, commit_count DESC</when>
-            <when test="sortField == 4">
-                (commit_count * #{commitWeight} + active_days * #{activeDayWeight} + (add_lines + del_lines) *
-                #{codeLineWeight}) DESC, commit_count DESC
+            <when test="sortField == 2">COUNT(DISTINCT DATE(c.commit_time)) DESC, COUNT(*) DESC</when>
+            <when test="sortField == 3">
+                (COALESCE(SUM(c.add_lines), 0) + COALESCE(SUM(c.del_lines), 0)) DESC, COUNT(*) DESC
             </when>
-            <otherwise>commit_count DESC, active_days DESC</otherwise>
+            <when test="sortField == 4">
+                (COUNT(*) * #{commitWeight} + COUNT(DISTINCT DATE(c.commit_time)) * #{activeDayWeight}
+                + (COALESCE(SUM(c.add_lines), 0) + COALESCE(SUM(c.del_lines), 0)) * #{codeLineWeight}) DESC,
+                COUNT(*) DESC
+            </when>
+            <otherwise>COUNT(*) DESC, COUNT(DISTINCT DATE(c.commit_time)) DESC</otherwise>
         </choose>
         LIMIT #{limit}
     </select>

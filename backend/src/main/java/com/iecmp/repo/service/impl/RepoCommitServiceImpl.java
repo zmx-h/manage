@@ -446,12 +446,19 @@ public class RepoCommitServiceImpl extends ServiceImpl<RepoCommitMapper, RepoCom
         return Math.min(Math.max(limit, 1), RepoPageUtils.MAX_PAGE_SIZE);
     }
 
-    /** 接口 2-12 的 lastSyncTime：当前用户各账户最近一次采集完成时间里的最大值。 */
+    /**
+     * 接口 2-12 的 lastSyncTime：当前用户各账户最近一次采集完成时间里的最大值。
+     *
+     * <p>某个账户还没完成过首次采集时 {@code last_sync_time} 为 NULL，此时 MyBatis 会把这一行
+     * 映射成 {@code null} 元素放进 List（只 select 一列且该列为 NULL 时的既有行为），
+     * 所以过滤空元素必须放在取 getter 之前，否则这里会对 null 调 getLastSyncTime 抛 NPE。
+     */
     private LocalDateTime lastSyncTimeOf(Long userId) {
         List<RepoAccount> accounts = repoAccountMapper.selectList(new LambdaQueryWrapper<RepoAccount>()
                 .select(RepoAccount::getLastSyncTime)
                 .eq(RepoAccount::getUserId, userId));
         return accounts.stream()
+                .filter(Objects::nonNull)
                 .map(RepoAccount::getLastSyncTime)
                 .filter(Objects::nonNull)
                 .max(Comparator.naturalOrder())
