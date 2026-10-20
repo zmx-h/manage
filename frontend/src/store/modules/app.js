@@ -1,19 +1,17 @@
 import { defineStore } from 'pinia'
 
-// 界面状态：侧边栏折叠、面包屑、主题等
 export const useAppStore = defineStore('app', {
   state: () => ({
     sidebarCollapsed: false,
-    /** 页面标题，由路由 meta.title 同步 */
-    pageTitle: ''
+    mobileMenu: false,
+    theme: localStorage.getItem('iecmp_theme') || 'system',
+    locale: localStorage.getItem('iecmp_locale') || 'zh-CN',
+    systemDark: window.matchMedia('(prefers-color-scheme: dark)').matches
   }),
-
+  getters: { dark: (s) => s.theme === 'dark' || (s.theme === 'system' && s.systemDark) },
   actions: {
-    toggleSidebar() {
-      this.sidebarCollapsed = !this.sidebarCollapsed
-    },
-    setPageTitle(title) {
-      this.pageTitle = title || ''
-    }
+    setTheme(value) { this.theme = value; localStorage.setItem('iecmp_theme', value) },
+    setLocale(value) { this.locale = value; localStorage.setItem('iecmp_locale', value) },
+    toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed }
   }
 })

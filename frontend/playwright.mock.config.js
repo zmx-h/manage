@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test'
+export default defineConfig({testDir:'./mock',testMatch:'browser.spec.js',timeout:30000,workers:1,reporter:'list',use:{baseURL:'http://127.0.0.1:5173',headless:true,launchOptions:{executablePath:process.env.BROWSER_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'}},webServer:{command:'npm run dev:mock',url:'http://127.0.0.1:5173/__mock/status',reuseExistingServer:true,timeout:30000}})

@@ -1,14 +1,2 @@
-<template>
-  <!-- TODO 待实现：调换审核 界面 -->
-  <el-card shadow="never">
-    <template #header>
-      调换审核
-    </template>
-    <el-empty description="页面待实现（骨架占位）" />
-  </el-card>
-</template>
-
-<script setup>
-// 骨架占位：本页面尚未实现任何界面与交互逻辑。
-// 数据来源接口：5-23 ~ 5-24（见 docs/IECMP-接口开发文档-v1.6.md）
-</script>
+<template><WorkspacePage /></template>
+<script setup>import WorkspacePage from '@/views/workspace/WorkspacePage.vue'</script>
