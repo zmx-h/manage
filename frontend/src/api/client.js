@@ -31,4 +31,3 @@ export function invoke(id, values = {}, options = {}) {
 export function normalizedList(data) { return Array.isArray(data) ? data : (data?.list || []) }
 export function plainText(value) { return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim() }
 export function safeUrl(value) { try { const url = new URL(value, window.location.origin); return ['http:','https:'].includes(url.protocol) ? url.href : '' } catch { return '' } }
-
