@@ -1,7 +1,9 @@
 package com.iecmp.duty.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.iecmp.duty.dto.DutyScheduleAddDTO;
 import com.iecmp.duty.entity.DutySchedule;
+import com.iecmp.duty.vo.DutyScheduleCreateVO;
 
 /**
  * 值日安排业务接口（{@code duty_schedule}）。
@@ -12,4 +14,5 @@ import com.iecmp.duty.entity.DutySchedule;
  * @author IECMP 后端组
  */
 public interface DutyScheduleService extends IService<DutySchedule> {
+    public DutyScheduleCreateVO add(DutyScheduleAddDTO dto);
 }

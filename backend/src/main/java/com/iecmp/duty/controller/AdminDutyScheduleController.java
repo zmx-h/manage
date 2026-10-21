@@ -1,5 +1,6 @@
 package com.iecmp.duty.controller;
 
+
 import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
@@ -59,7 +60,7 @@ public class AdminDutyScheduleController {
     @PostMapping("/admin/duty/schedule")
     public Result<DutyScheduleCreateVO> postDutySchedule(@RequestBody @Valid DutyScheduleAddDTO dto) {
         // TODO 待实现（接口 7-14）：见《IECMP-接口开发文档-v1.6.md》接口 7-14
-        return Result.todo("7-14");
+        return Result.success(dutyScheduleService.add(dto));
     }
 
     /**
