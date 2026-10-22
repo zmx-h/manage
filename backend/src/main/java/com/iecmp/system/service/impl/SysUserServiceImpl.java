@@ -1,5 +1,6 @@
 package com.iecmp.system.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iecmp.system.entity.SysUser;
 import com.iecmp.system.mapper.SysUserMapper;
@@ -16,4 +17,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         implements SysUserService {
+    @Override
+    public SysUser getByUsername(String username) {
+        // 使用 MyBatis-Plus 的条件构造器去数据库查
+        LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SysUser::getUsername, username);
+        return this.getOne(wrapper);
+    }
 }

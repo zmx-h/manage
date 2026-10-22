@@ -9,6 +9,7 @@ import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
+import com.iecmp.common.util.LoginUserUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -52,8 +53,7 @@ public class AdminBudgetApplyController {
     @RequiresPerm("budget:apply:list")
     @GetMapping("/admin/budget/apply/page")
     public Result<PageResult<BudgetApplyPageVO>> getBudgetApplyPage(@ParameterObject BudgetApplyPageQuery query) {
-        // TODO 待实现（接口 3-20）：见《IECMP-接口开发文档-v1.6.md》接口 3-20
-        return Result.todo("3-20");
+        return Result.success(budgetApplyService.adminApplyPage(query));
     }
 
     /**
@@ -68,7 +68,7 @@ public class AdminBudgetApplyController {
     @OperLog(module = "管理端-预算审核", value = "申请审核（通过 / 驳回）")
     @PutMapping("/admin/budget/apply/{id}/audit")
     public Result<Void> putBudgetApplyAudit(@PathVariable("id") Long id, @RequestBody @Valid BudgetApplyAuditDTO dto) {
-        // TODO 待实现（接口 3-21）：见《IECMP-接口开发文档-v1.6.md》接口 3-21
-        return Result.todo("3-21");
+        budgetApplyService.auditApply(id, dto, LoginUserUtil.getUserId());
+        return Result.success();
     }
 }

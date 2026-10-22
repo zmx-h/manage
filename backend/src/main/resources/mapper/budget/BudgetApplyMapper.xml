@@ -128,4 +128,100 @@
           AND YEAR(a.create_time) = #{year}
     </select>
 
+    <!-- 3-20 管理端申请审核分页 -->
+    <select id="selectAdminPage" resultType="com.iecmp.budget.vo.BudgetApplyPageVO">
+        SELECT
+        a.id AS applyId,
+        a.period_id AS periodId,
+        p.title AS periodTitle,
+        a.item_id AS itemId,
+        i.name AS itemName,
+        a.apply_user_id AS applyUserId,
+        au.real_name AS applyUserName,
+        au.grade AS grade,
+        a.title,
+        a.amount,
+        a.reason,
+        a.expect_date AS expectDate,
+        a.attach_file_id AS attachFileId,
+        a.status,
+        a.audit_user_id AS auditUserId,
+        u.real_name AS auditUserName,
+        a.audit_time AS auditTime,
+        a.audit_remark AS auditRemark,
+        a.create_time AS createTime
+        FROM budget_apply a
+        LEFT JOIN budget_period p ON a.period_id = p.id
+        LEFT JOIN budget_item i ON a.item_id = i.id
+        LEFT JOIN sys_user au ON a.apply_user_id = au.id
+        LEFT JOIN sys_user u ON a.audit_user_id = u.id
+        WHERE a.deleted = 0
+        <if test="status != null">
+            AND a.status = #{status}
+        </if>
+        <if test="periodId != null">
+            AND a.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND a.item_id = #{itemId}
+        </if>
+        <if test="applyUserId != null">
+            AND a.apply_user_id = #{applyUserId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (a.title LIKE CONCAT('%', #{keyword}, '%')
+                 OR au.real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="beginTime != null">
+            AND a.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND a.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY a.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-20 配套总数 -->
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_apply a
+        LEFT JOIN sys_user au ON a.apply_user_id = au.id
+        WHERE a.deleted = 0
+        <if test="status != null">
+            AND a.status = #{status}
+        </if>
+        <if test="periodId != null">
+            AND a.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND a.item_id = #{itemId}
+        </if>
+        <if test="applyUserId != null">
+            AND a.apply_user_id = #{applyUserId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (a.title LIKE CONCAT('%', #{keyword}, '%')
+                 OR au.real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="beginTime != null">
+            AND a.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND a.create_time &lt;= #{endTime}
+        </if>
+    </select>
+
+    <!-- 3-25 申请统计 -->
+    <select id="selectApplyStat" resultType="com.iecmp.budget.vo.BudgetStatOverviewVO$ApplyStatVO">
+        SELECT
+            SUM(CASE WHEN a.status = 0 THEN 1 ELSE 0 END) AS pendingCount,
+            SUM(CASE WHEN a.status = 1 THEN 1 ELSE 0 END) AS approvedCount,
+            SUM(CASE WHEN a.status = 2 THEN 1 ELSE 0 END) AS rejectedCount,
+            COALESCE(SUM(CASE WHEN a.status = 1 THEN a.amount END), 0) AS approvedAmount
+        FROM budget_apply a
+        WHERE a.period_id = #{periodId}
+          AND a.deleted = 0
+    </select>
+
 </mapper>

@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetApply;
 import com.iecmp.budget.vo.BudgetApplyDetailVO;
 import com.iecmp.budget.vo.BudgetApplyMyPageVO;
+import com.iecmp.budget.vo.BudgetApplyPageVO;
 import com.iecmp.budget.vo.BudgetStatMyVO;
+import com.iecmp.budget.vo.BudgetStatOverviewVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -57,4 +59,27 @@ public interface BudgetApplyMapper extends BaseMapper<BudgetApply> {
     /** 3-09 我的经费汇总 */
     BudgetStatMyVO selectMyStat(@Param("applyUserId") Long applyUserId,
                                 @Param("year") String year);
+
+    /** 3-20 管理端申请审核分页 */
+    List<BudgetApplyPageVO> selectAdminPage(@Param("status") Integer status,
+                                              @Param("periodId") Long periodId,
+                                              @Param("itemId") Long itemId,
+                                              @Param("applyUserId") Long applyUserId,
+                                              @Param("keyword") String keyword,
+                                              @Param("beginTime") String beginTime,
+                                              @Param("endTime") String endTime,
+                                              @Param("offset") Integer offset,
+                                              @Param("pageSize") Integer pageSize);
+
+    /** 3-20 配套总数 */
+    Long countAdminPage(@Param("status") Integer status,
+                          @Param("periodId") Long periodId,
+                          @Param("itemId") Long itemId,
+                          @Param("applyUserId") Long applyUserId,
+                          @Param("keyword") String keyword,
+                          @Param("beginTime") String beginTime,
+                          @Param("endTime") String endTime);
+
+    /** 3-25 申请统计 */
+    BudgetStatOverviewVO.ApplyStatVO selectApplyStat(@Param("periodId") Long periodId);
 }

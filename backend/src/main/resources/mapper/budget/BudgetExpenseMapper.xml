@@ -66,4 +66,90 @@
         </if>
     </select>
 
+    <!-- 3-23 支出分页（后台） -->
+    <select id="selectAdminPage" resultType="com.iecmp.budget.vo.AdminBudgetExpensePageVO">
+        SELECT
+            e.id AS expenseId,
+            e.period_id AS periodId,
+            p.title AS periodTitle,
+            e.item_id AS itemId,
+            i.name AS itemName,
+            e.title,
+            e.amount,
+            e.expense_date AS expenseDate,
+            e.voucher_file_id AS voucherFileId,
+            e.handler_id AS handlerId,
+            u.real_name AS handlerName,
+            e.apply_id AS applyId,
+            e.remark,
+            e.create_time AS createTime
+        FROM budget_expense e
+        LEFT JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE 1 = 1
+          AND e.deleted = 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="handlerId != null">
+            AND e.handler_id = #{handlerId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+        ORDER BY e.expense_date DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-23 配套总数 -->
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_expense e
+        LEFT JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE 1 = 1
+          AND e.deleted = 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="handlerId != null">
+            AND e.handler_id = #{handlerId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <!-- 3-25 月度支出趋势 -->
+    <select id="selectMonthTrend" resultType="com.iecmp.budget.vo.BudgetStatOverviewVO$MonthTrendVO">
+        SELECT
+            DATE_FORMAT(e.expense_date, '%Y-%m') AS month,
+            CAST(COALESCE(SUM(e.amount), 0) AS CHAR) AS amount
+        FROM budget_expense e
+        WHERE e.period_id = #{periodId}
+          AND e.deleted = 0
+        GROUP BY DATE_FORMAT(e.expense_date, '%Y-%m')
+        ORDER BY month
+    </select>
+
 </mapper>

@@ -2,7 +2,9 @@ package com.iecmp.budget.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.budget.entity.BudgetPeriod;
+import com.iecmp.budget.query.BudgetStatOverviewQuery;
 import com.iecmp.budget.vo.BudgetPeriodDetailVO;
+import com.iecmp.budget.vo.BudgetStatOverviewVO;
 import com.iecmp.budget.vo.UserBudgetPeriodPageVO;
 import com.iecmp.common.result.PageResult;
 
@@ -18,4 +20,6 @@ public interface BudgetPeriodService extends IService<BudgetPeriod> {
 
     /** 3-02 预算周期详情 */
     BudgetPeriodDetailVO periodDetail(Long id);
+
+    BudgetStatOverviewVO statOverview(BudgetStatOverviewQuery query);
 }
