@@ -95,6 +95,7 @@ public class GlobalExceptionHandler {
     /** 兜底：记录完整堆栈，前端只看到「系统繁忙」。 */
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e, HttpServletRequest request) {
+        e.printStackTrace();  // 临时：直接打控制台，方便排查
         log.error("系统异常 [{} {}]", request.getMethod(), request.getRequestURI(), e);
         return Result.fail(ResultCode.SYSTEM_ERROR);
     }

@@ -24,7 +24,11 @@ public final class LoginUserUtil {
 
     /** 取当前登录用户 ID。 */
     public static Long getUserId() {
-        return getLoginUser().getUserId();
+        LoginUser user = UserContext.get();
+        if (user == null || user.getUserId() == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        return user.getUserId();
     }
 
     /** 取当前登录用户 ID，未登录返回 null（用于「令牌可选」的公开接口）。 */
