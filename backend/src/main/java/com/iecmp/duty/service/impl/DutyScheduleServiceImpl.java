@@ -1,14 +1,19 @@
 package com.iecmp.duty.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iecmp.common.exception.BusinessException;
+import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyScheduleAddDTO;
+import com.iecmp.duty.dto.DutyScheduleUpdateDTO;
 import com.iecmp.duty.entity.DutyPlan;
 import com.iecmp.duty.entity.DutySchedule;
 import com.iecmp.duty.mapper.DutyScheduleMapper;
+import com.iecmp.duty.query.AdminDutySchedulePageQuery;
 import com.iecmp.duty.service.DutyPlanService;
 import com.iecmp.duty.service.DutyScheduleService;
+import com.iecmp.duty.vo.AdminDutySchedulePageVO;
 import com.iecmp.duty.vo.DutyScheduleCreateVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +26,7 @@ import java.time.LocalDate;
  * <p>骨架阶段为空实现，只提供通用 CRUD；业务方法在 {@link DutyScheduleService} 中声明后在此实现。
  *
  * @author liuyujie
- * @date 2026-10-21
+ * @date 2026-10-22
  */
 @Service
 @RequiredArgsConstructor
@@ -68,5 +73,66 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
         DutyScheduleCreateVO vo = new DutyScheduleCreateVO();
         vo.setScheduleId(schedule.getId());
         return vo;
+    }
+
+    @Override
+    public void update(DutyScheduleUpdateDTO dto) {
+        // 1. 查旧数据（必须有这一步，才能判断存不存在）
+        DutySchedule schedule = this.getById(dto.getScheduleId());
+        if (schedule == null) {
+            throw new BusinessException(70006, "值日安排不存在");
+        }
+
+        // 2. 把前端传的新数据塞进去
+        schedule.setUserId(dto.getUserId());
+        schedule.setTaskContent(dto.getTaskContent());
+        // 日期是 String，记得转换
+        if (dto.getDutyDate() != null) {
+            schedule.setDutyDate(LocalDate.parse(dto.getDutyDate()));
+        }
+        // 如果 DTO 里还有 status，也塞进去（没有就不管）
+
+        // 3. 核心步骤！把修改后的数据存进数据库！
+        this.updateById(schedule);
+    }
+
+    @Override
+    public void delete(Long id) {
+        // 1. 查旧数据（必须有这一步，才能判断存不存在）
+        DutySchedule schedule = this.getById(id);
+        if (schedule == null) {
+            throw new BusinessException(70006, "值日安排不存在");
+        }
+        this.removeById(id);
+
+    }
+
+    @Override
+    public PageResult<AdminDutySchedulePageVO> page(AdminDutySchedulePageQuery query) {
+        // 1. 创建分页对象（提示：new Page<>(query.getPageNum(), query.getPageSize())）
+        Page<DutySchedule> page = new Page<>(query.getPageNum(), query.getPageSize());
+
+        // 2. 构造查询条件（LambdaQueryWrapper）
+        LambdaQueryWrapper<DutySchedule> wrapper = new LambdaQueryWrapper<>();
+
+        // 3. 拼装条件（用 if 判空，如果前端传了，才去查）
+        // 比如：按状态查 wrapper.eq(query.getStatus() != null, DutySchedule::getStatus, query.getStatus());
+        // 比如：按日期范围查 wrapper.ge(...) 和 wrapper.le(...)
+        // 比如：按人名查（人名在前端怎么传的？如果是 userId，就直接 eq；如果是 keyword 模糊查人名，这里有点复杂，需要先查 sys_user 表拿 ID）
+
+        // 4. 执行分页查询
+        Page<DutySchedule> result = this.page(page, wrapper);
+
+        // 5. 把 Entity 转成 VO 并返回
+        return PageResult.of(result, entity -> {
+            AdminDutySchedulePageVO vo = new AdminDutySchedulePageVO();
+            vo.setScheduleId(entity.getId());
+            vo.setPlanId(entity.getPlanId());
+            vo.setDutyDate(entity.getDutyDate() != null ? entity.getDutyDate().toString() : null); // 日期转字符串
+            vo.setTaskContent(entity.getTaskContent());
+            vo.setStatus(entity.getStatus());
+            // ... 其他的如果你看着不报错也可以 set
+            return vo;
+        });
     }
 }
