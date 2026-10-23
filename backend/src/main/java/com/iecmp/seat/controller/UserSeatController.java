@@ -48,33 +48,34 @@ public class UserSeatController {
 
     @Operation(summary = "5-02 工位列表", description = "以列表形式返回工位信息，供不支持平面图的场景（如移动端）或搜索使用")
     @GetMapping("/user/seat/list")
-    public Result<SeatListVO> getSeatList(@ParameterObject SeatListQuery query) {
-        return Result.todo("5-02");
+    public Result<List<SeatListVO>> getSeatList(@ParameterObject SeatListQuery query) {
+        return Result.success(seatInfoService.getSeatList(query));
     }
 
     @Operation(summary = "5-03 我的工位", description = "查询当前登录用户的工位；未分配时返回 null")
     @GetMapping("/user/seat/my")
     public Result<SeatMyVO> getSeatMy() {
-        return Result.todo("5-03");
+        return Result.success(seatInfoService.getMySeat(LoginUserUtil.getUserId()));
     }
 
     @Operation(summary = "5-04 提交工位申请", description = "成员申请工位；可指定具体工位，也可只填意向区域")
     @OperLog(module = "用户端-工位与申请", value = "提交工位申请")
     @PostMapping("/user/seat/apply")
     public Result<SeatApplyVO> postSeatApply(@RequestBody @Valid SeatApplyDTO dto) {
-        return Result.todo("5-04");
+        return Result.success(seatApplyService.createApply(dto, LoginUserUtil.getUserId()));
     }
 
     @Operation(summary = "5-05 我的工位申请分页", description = "分页查询当前登录用户提交的工位申请")
     @GetMapping("/user/seat/apply/my/page")
     public Result<PageResult<SeatApplyMyPageVO>> getSeatApplyMyPage(@ParameterObject SeatApplyMyPageQuery query) {
-        return Result.todo("5-05");
+        return Result.success(seatApplyService.myApplyPage(query, LoginUserUtil.getUserId()));
     }
 
     @Operation(summary = "5-06 撤销工位申请", description = "撤销尚未审核的工位申请")
     @OperLog(module = "用户端-工位与申请", value = "撤销工位申请")
     @PutMapping("/user/seat/apply/{id}/cancel")
     public Result<Void> putSeatApplyCancel(@PathVariable("id") Long id) {
-        return Result.todo("5-06");
+        seatApplyService.cancelApply(id, LoginUserUtil.getUserId());
+        return Result.success();
     }
 }

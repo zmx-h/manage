@@ -2,6 +2,10 @@ package com.iecmp.seat.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.seat.entity.SeatInfo;
+import com.iecmp.seat.query.SeatListQuery;
+import com.iecmp.seat.vo.SeatListVO;
+import com.iecmp.seat.vo.SeatMyVO;
+import java.util.List;
 
 /**
  * 工位业务接口（{@code seat_info}）。
@@ -12,4 +16,8 @@ import com.iecmp.seat.entity.SeatInfo;
  * @author IECMP 后端组
  */
 public interface SeatInfoService extends IService<SeatInfo> {
+
+    List<SeatListVO> getSeatList(SeatListQuery query);
+
+    SeatMyVO getMySeat(Long userId);
 }

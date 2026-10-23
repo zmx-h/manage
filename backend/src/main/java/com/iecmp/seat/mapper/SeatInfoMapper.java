@@ -2,6 +2,9 @@ package com.iecmp.seat.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.seat.entity.SeatInfo;
+import com.iecmp.seat.query.SeatListQuery;
+import com.iecmp.seat.vo.SeatListVO;
+import com.iecmp.seat.vo.SeatMyVO;
 import com.iecmp.seat.vo.UserSeatPlanVO;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -35,4 +38,8 @@ public interface SeatInfoMapper extends BaseMapper<SeatInfo> {
      * @param areaIds 区域 ID 列表，非空
      */
     List<UserSeatPlanVO.SeatVO> selectSeatListWithOccupant(@Param("areaIds") List<Long> areaIds);
+
+    List<SeatListVO> selectSeatList(SeatListQuery query);
+
+    SeatMyVO selectMySeat(@Param("userId") Long userId);
 }
