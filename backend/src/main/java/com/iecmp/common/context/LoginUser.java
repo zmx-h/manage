@@ -13,7 +13,7 @@ import java.util.Set;
  * 业务代码通过 {@code LoginUserUtil} 或 {@link UserContext} 获取，不直接从请求参数取 userId。
  */
 @Data
-public class LoginUser implements Serializable {
+public class  LoginUser implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
