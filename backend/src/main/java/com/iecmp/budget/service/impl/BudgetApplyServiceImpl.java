@@ -2,6 +2,7 @@ package com.iecmp.budget.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.iecmp.budget.dto.BudgetApplyAuditDTO;
 import com.iecmp.budget.dto.BudgetApplyDTO;
 import com.iecmp.budget.entity.BudgetApply;
 import com.iecmp.budget.entity.BudgetItem;
@@ -10,9 +11,11 @@ import com.iecmp.budget.enums.BudgetErrorCode;
 import com.iecmp.budget.mapper.BudgetApplyMapper;
 import com.iecmp.budget.mapper.BudgetItemMapper;
 import com.iecmp.budget.mapper.BudgetPeriodMapper;
+import com.iecmp.budget.query.BudgetApplyPageQuery;
 import com.iecmp.budget.service.BudgetApplyService;
 import com.iecmp.budget.vo.BudgetApplyDetailVO;
 import com.iecmp.budget.vo.BudgetApplyMyPageVO;
+import com.iecmp.budget.vo.BudgetApplyPageVO;
 import com.iecmp.budget.vo.BudgetApplyVO;
 import com.iecmp.budget.vo.BudgetStatMyVO;
 import com.iecmp.common.exception.BusinessException;
@@ -188,5 +191,56 @@ public class BudgetApplyServiceImpl extends ServiceImpl<BudgetApplyMapper, Budge
                         "时间格式错误，应为 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss");
             }
         }
+    }
+
+    @Override
+    public PageResult<BudgetApplyPageVO> adminApplyPage(BudgetApplyPageQuery query) {
+        int pageNum = query.getPageNum();
+        int pageSize = query.getPageSize();
+        int offset = (pageNum - 1) * pageSize;
+        Long total = baseMapper.countAdminPage(
+                query.getStatus(), query.getPeriodId(), query.getItemId(),
+                query.getApplyUserId(), query.getKeyword(),
+                query.getBeginTime(), query.getEndTime());
+        List<BudgetApplyPageVO> list = baseMapper.selectAdminPage(
+                query.getStatus(), query.getPeriodId(), query.getItemId(),
+                query.getApplyUserId(), query.getKeyword(),
+                query.getBeginTime(), query.getEndTime(),
+                offset, pageSize);
+        long pages = total == 0 ? 0 : (total + pageSize - 1) / pageSize;
+        return new PageResult<>(total, (long) pageNum, (long) pageSize, pages, list);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void auditApply(Long id, BudgetApplyAuditDTO dto, Long currentUserId) {
+        BudgetApply apply = baseMapper.selectById(id);
+        if (apply == null) {
+            throw new BusinessException(BudgetErrorCode.E30007.getCode(), BudgetErrorCode.E30007.getMsg());
+        }
+        if (apply.getStatus() != 0) {
+            throw new BusinessException(BudgetErrorCode.E30010.getCode(), BudgetErrorCode.E30010.getMsg());
+        }
+        if (dto.getAuditStatus() == 1) {
+            BigDecimal actualApproved = dto.getApprovedAmount() != null
+                    ? dto.getApprovedAmount() : apply.getAmount();
+            BudgetItem item = itemMapper.selectById(apply.getItemId());
+            if (item != null) {
+                BigDecimal remain = item.getBudgetAmount().subtract(item.getUsedAmount());
+                if (actualApproved.compareTo(remain) > 0) {
+                    throw new BusinessException(BudgetErrorCode.E30006.getCode(), BudgetErrorCode.E30006.getMsg());
+                }
+            }
+            apply.setStatus(1);
+            if (dto.getApprovedAmount() != null) {
+                apply.setApprovedAmount(dto.getApprovedAmount());
+            }
+        } else {
+            apply.setStatus(2);
+        }
+        apply.setAuditUserId(currentUserId);
+        apply.setAuditTime(LocalDateTime.now());
+        apply.setAuditRemark(dto.getAuditRemark());
+        baseMapper.updateById(apply);
     }
 }

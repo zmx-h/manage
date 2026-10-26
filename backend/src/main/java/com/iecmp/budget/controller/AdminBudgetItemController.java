@@ -49,8 +49,7 @@ public class AdminBudgetItemController {
     @OperLog(module = "管理端-预算科目", value = "新增预算科目")
     @PostMapping("/admin/budget/item")
     public Result<BudgetItemCreateVO> postBudgetItem(@RequestBody @Valid BudgetItemAddDTO dto) {
-        // TODO 待实现（接口 3-17）：见《IECMP-接口开发文档-v1.6.md》接口 3-17
-        return Result.todo("3-17");
+        return Result.success(budgetItemService.createItem(dto));
     }
 
     /**
@@ -65,8 +64,8 @@ public class AdminBudgetItemController {
     @OperLog(module = "管理端-预算科目", value = "修改预算科目")
     @PutMapping("/admin/budget/item")
     public Result<Void> putBudgetItem(@RequestBody @Valid BudgetItemUpdateDTO dto) {
-        // TODO 待实现（接口 3-18）：见《IECMP-接口开发文档-v1.6.md》接口 3-18
-        return Result.todo("3-18");
+        budgetItemService.updateItem(dto);
+        return Result.success();
     }
 
     /**
@@ -81,7 +80,7 @@ public class AdminBudgetItemController {
     @OperLog(module = "管理端-预算科目", value = "删除预算科目")
     @DeleteMapping("/admin/budget/item/{id}")
     public Result<Void> deleteBudgetItem(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 3-19）：见《IECMP-接口开发文档-v1.6.md》接口 3-19
-        return Result.todo("3-19");
+        budgetItemService.deleteItem(id);
+        return Result.success();
     }
 }
