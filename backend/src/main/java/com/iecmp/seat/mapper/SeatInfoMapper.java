@@ -7,6 +7,7 @@ import com.iecmp.seat.vo.SeatListVO;
 import com.iecmp.seat.vo.SeatMyVO;
 import com.iecmp.seat.vo.UserSeatPlanVO;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -42,4 +43,6 @@ public interface SeatInfoMapper extends BaseMapper<SeatInfo> {
     List<SeatListVO> selectSeatList(SeatListQuery query);
 
     SeatMyVO selectMySeat(@Param("userId") Long userId);
+
+    List<Map<String, Object>> countSeatsGroupByArea();
 }

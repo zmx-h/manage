@@ -63,8 +63,7 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "新增工位")
     @PostMapping("/admin/seat")
     public Result<SeatCreateVO> postSeat(@RequestBody @Valid SeatAddDTO dto) {
-        // TODO 待实现（接口 5-11）：见《IECMP-接口开发文档-v1.6.md》接口 5-11
-        return Result.todo("5-11");
+        return Result.success(seatInfoService.createSeat(dto));
     }
 
     /**
@@ -79,8 +78,8 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "修改工位")
     @PutMapping("/admin/seat")
     public Result<Void> putSeat(@RequestBody @Valid SeatUpdateDTO dto) {
-        // TODO 待实现（接口 5-12）：见《IECMP-接口开发文档-v1.6.md》接口 5-12
-        return Result.todo("5-12");
+        seatInfoService.updateSeat(dto);
+        return Result.success();
     }
 
     /**
@@ -95,8 +94,7 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "批量保存工位布局坐标")
     @PutMapping("/admin/seat/batch")
     public Result<SeatBatchVO> putSeatBatch(@RequestBody @Valid SeatBatchDTO dto) {
-        // TODO 待实现（接口 5-13）：见《IECMP-接口开发文档-v1.6.md》接口 5-13
-        return Result.todo("5-13");
+        return Result.success(seatInfoService.batchUpdateSeats(dto));
     }
 
     /**
@@ -111,8 +109,8 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "删除工位")
     @DeleteMapping("/admin/seat/{id}")
     public Result<Void> deleteSeat(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 5-14）：见《IECMP-接口开发文档-v1.6.md》接口 5-14
-        return Result.todo("5-14");
+        seatInfoService.deleteSeat(id);
+        return Result.success();
     }
 
     /**
@@ -127,8 +125,7 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "分配工位")
     @PutMapping("/admin/seat/{id}/assign")
     public Result<SeatAssignVO> putSeatAssign(@PathVariable("id") Long id, @RequestBody @Valid SeatAssignDTO dto) {
-        // TODO 待实现（接口 5-15）：见《IECMP-接口开发文档-v1.6.md》接口 5-15
-        return Result.todo("5-15");
+        return Result.success(seatInfoService.assignSeat(id, dto.getUserId()));
     }
 
     /**
@@ -143,8 +140,8 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "释放工位")
     @PutMapping("/admin/seat/{id}/release")
     public Result<Void> putSeatRelease(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 5-16）：见《IECMP-接口开发文档-v1.6.md》接口 5-16
-        return Result.todo("5-16");
+        seatInfoService.releaseSeat(id);
+        return Result.success();
     }
 
     /**
@@ -159,8 +156,8 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "工位状态变更")
     @PutMapping("/admin/seat/{id}/status")
     public Result<Void> putSeatStatus(@PathVariable("id") Long id, @RequestBody @Valid SeatStatusDTO dto) {
-        // TODO 待实现（接口 5-17）：见《IECMP-接口开发文档-v1.6.md》接口 5-17
-        return Result.todo("5-17");
+        seatInfoService.updateSeatStatus(id, dto);
+        return Result.success();
     }
 
     /**

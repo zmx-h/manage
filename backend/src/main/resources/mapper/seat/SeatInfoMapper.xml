@@ -79,4 +79,12 @@
         LIMIT 1
     </select>
 
+    <!-- 5-07 区域列表（后台）：按 area_id 分组统计未删除工位数 -->
+    <select id="countSeatsGroupByArea" resultType="java.util.Map">
+        SELECT area_id AS areaId, COUNT(*) AS cnt
+        FROM seat_info
+        WHERE deleted = 0
+        GROUP BY area_id
+    </select>
+
 </mapper>

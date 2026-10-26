@@ -12,6 +12,7 @@ import com.iecmp.seat.vo.SeatAreaListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,9 +53,8 @@ public class AdminSeatAreaController {
     @Operation(summary = "5-07 区域列表（后台）", description = "查询全部区域（含未启用），用于工位表单的区域选择与布局编辑器区域切换")
     @RequiresPerm("seat:area:list")
     @GetMapping("/admin/seat/area/list")
-    public Result<SeatAreaListVO> getSeatAreaList() {
-        // TODO 待实现（接口 5-07）：见《IECMP-接口开发文档-v1.6.md》接口 5-07
-        return Result.todo("5-07");
+    public Result<List<SeatAreaListVO>> getSeatAreaList() {
+        return Result.success(seatAreaService.getAreaList());
     }
 
     /**
@@ -69,8 +69,7 @@ public class AdminSeatAreaController {
     @OperLog(module = "管理端-区域与平面图", value = "新增区域（上传平面图）")
     @PostMapping("/admin/seat/area")
     public Result<SeatAreaCreateVO> postSeatArea(@RequestBody @Valid SeatAreaAddDTO dto) {
-        // TODO 待实现（接口 5-08）：见《IECMP-接口开发文档-v1.6.md》接口 5-08
-        return Result.todo("5-08");
+        return Result.success(seatAreaService.createArea(dto));
     }
 
     /**
@@ -85,8 +84,8 @@ public class AdminSeatAreaController {
     @OperLog(module = "管理端-区域与平面图", value = "修改区域")
     @PutMapping("/admin/seat/area")
     public Result<Void> putSeatArea(@RequestBody @Valid SeatAreaUpdateDTO dto) {
-        // TODO 待实现（接口 5-09）：见《IECMP-接口开发文档-v1.6.md》接口 5-09
-        return Result.todo("5-09");
+        seatAreaService.updateArea(dto);
+        return Result.success();
     }
 
     /**
@@ -101,7 +100,7 @@ public class AdminSeatAreaController {
     @OperLog(module = "管理端-区域与平面图", value = "删除区域")
     @DeleteMapping("/admin/seat/area/{id}")
     public Result<Void> deleteSeatArea(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 5-10）：见《IECMP-接口开发文档-v1.6.md》接口 5-10
-        return Result.todo("5-10");
+        seatAreaService.deleteArea(id);
+        return Result.success();
     }
 }

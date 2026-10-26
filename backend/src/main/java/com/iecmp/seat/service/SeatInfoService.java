@@ -1,8 +1,15 @@
 package com.iecmp.seat.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.iecmp.seat.dto.SeatAddDTO;
+import com.iecmp.seat.dto.SeatBatchDTO;
+import com.iecmp.seat.dto.SeatStatusDTO;
+import com.iecmp.seat.dto.SeatUpdateDTO;
 import com.iecmp.seat.entity.SeatInfo;
 import com.iecmp.seat.query.SeatListQuery;
+import com.iecmp.seat.vo.SeatAssignVO;
+import com.iecmp.seat.vo.SeatBatchVO;
+import com.iecmp.seat.vo.SeatCreateVO;
 import com.iecmp.seat.vo.SeatListVO;
 import com.iecmp.seat.vo.SeatMyVO;
 import java.util.List;
@@ -20,4 +27,18 @@ public interface SeatInfoService extends IService<SeatInfo> {
     List<SeatListVO> getSeatList(SeatListQuery query);
 
     SeatMyVO getMySeat(Long userId);
+
+    SeatCreateVO createSeat(SeatAddDTO dto);
+
+    void updateSeat(SeatUpdateDTO dto);
+
+    SeatBatchVO batchUpdateSeats(SeatBatchDTO dto);
+
+    void deleteSeat(Long id);
+
+    SeatAssignVO assignSeat(Long seatId, Long userId);
+
+    void releaseSeat(Long id);
+
+    void updateSeatStatus(Long id, SeatStatusDTO dto);
 }

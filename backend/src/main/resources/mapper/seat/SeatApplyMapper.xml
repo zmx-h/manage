@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.seat.mapper.SeatApplyMapper">
+
+    <select id="selectMyPage" resultType="com.iecmp.seat.vo.SeatApplyMyPageVO">
+        SELECT
+            a.id            AS applyId,
+            a.area_id       AS areaId,
+            ar.name         AS areaName,
+            a.seat_id        AS seatId,
+            s.seat_no       AS seatNo,
+            a.reason        AS reason,
+            a.status        AS status,
+            u.real_name     AS auditUserName,
+            a.audit_time    AS auditTime,
+            a.audit_remark  AS auditRemark,
+            a.create_time   AS createTime
+        FROM seat_apply a
+        LEFT JOIN seat_area ar ON a.area_id = ar.id AND ar.deleted = 0
+        LEFT JOIN seat_info s ON a.seat_id = s.id AND s.deleted = 0
+        LEFT JOIN sys_user u ON a.audit_user_id = u.id AND u.deleted = 0
+        WHERE a.deleted = 0
+          AND a.user_id = #{userId}
+        <if test="query.status != null">
+            AND a.status = #{query.status}
+        </if>
+        <if test="query.beginTime != null and query.beginTime != ''">
+            AND a.create_time &gt;= #{query.beginTime}
+        </if>
+        <if test="query.endTime != null and query.endTime != ''">
+            AND a.create_time &lt;= #{query.endTime}
+        </if>
+        ORDER BY a.create_time DESC
+    </select>
+
+</mapper>
