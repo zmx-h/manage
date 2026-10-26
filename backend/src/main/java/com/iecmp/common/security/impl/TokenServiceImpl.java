@@ -5,6 +5,7 @@ import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.properties.JwtProperties;
 import com.iecmp.common.result.ResultCode;
+import com.iecmp.common.security.LoginUserLoader;
 import com.iecmp.common.security.TokenService;
 import com.iecmp.common.util.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -17,12 +18,10 @@ import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 令牌服务实现（骨架）。
+ * 令牌服务实现。
  *
- * <p><b>待实现</b>：{@link #loadLoginUser(Long)} 需要查询 {@code sys_user}、
- * {@code sys_role}、{@code sys_role_permission} 三张表装配角色与权限码集合。
- * 为避免 {@code common} 依赖 {@code system} 模块的 Mapper，此处通过
- * {@code LoginUserLoader} 扩展点解耦（见类中的 TODO），实现时由 system 模块提供实现。
+ * <p>登录用户由 system 模块的 {@link LoginUserLoader} 实现装配，
+ * 避免 {@code common} 层反向依赖具体业务 Mapper。
  */
 @Slf4j
 @Service
@@ -32,6 +31,7 @@ public class TokenServiceImpl implements TokenService {
     private final JwtUtil jwtUtil;
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate stringRedisTemplate;
+    private final LoginUserLoader loginUserLoader;
 
     @Override
     public TokenPair issue(Long userId, String username, String realName, LoginUser loginUser) {
@@ -92,11 +92,7 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public LoginUser loadLoginUser(Long userId) {
-        // TODO 1-05 / 1-04：查询 sys_user + sys_role + sys_role_permission 装配 LoginUser；
-        //  用户被禁用（status = 0）时直接抛出 10002 账号被禁用；
-        //  角色编码含 SUPER_ADMIN（或 sys_role.role_code = 'SUPER_ADMIN'）时 superAdmin = true。
-        //  为避免 common -> system 的包依赖，建议在 system 模块实现 LoginUserLoader 接口后由本类注入。
-        throw new BusinessException(ResultCode.SYSTEM_ERROR);
+        return loginUserLoader.load(userId);
     }
 
     private boolean isBlacklisted(String token) {
