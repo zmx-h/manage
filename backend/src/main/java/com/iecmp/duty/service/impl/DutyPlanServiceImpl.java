@@ -3,8 +3,10 @@ package com.iecmp.duty.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyPlanAddDTO;
+import com.iecmp.duty.dto.DutyPlanUpdateDTO;
 import com.iecmp.duty.entity.DutyPlan;
 import com.iecmp.duty.mapper.DutyPlanMapper;
 import com.iecmp.duty.query.DutyPlanPageQuery;
@@ -19,7 +21,7 @@ import java.time.LocalDate;
  * 排班计划业务实现（{@code duty_plan}）。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-26
  */
 @Service
 public class DutyPlanServiceImpl extends ServiceImpl<DutyPlanMapper, DutyPlan> implements DutyPlanService {
@@ -83,5 +85,35 @@ public class DutyPlanServiceImpl extends ServiceImpl<DutyPlanMapper, DutyPlan> i
         DutyPlanCreateVO vo = new DutyPlanCreateVO();
         vo.setPlanId(plan.getId());
         return vo;
+    }
+
+    @Override
+    public void putDutyPlan(DutyPlanUpdateDTO dto) {
+        DutyPlan plan = this.getById(dto.getPlanId());
+        if(plan==null){
+            throw new BusinessException(70001,"排班计划不存在");
+        }
+        plan.setTitle(dto.getTitle());
+        plan.setPlanType(dto.getPlanType());
+        plan.setTaskContent(dto.getTaskContent());
+        plan.setMemberIds(dto.getMemberIds());
+        if(dto.getStartDate()!=null){
+            plan.setStartDate(LocalDate.parse(dto.getStartDate()));
+        }
+        if(dto.getEndDate()!=null){
+            plan.setEndDate(LocalDate.parse(dto.getEndDate()));
+        }
+        this.updateById(plan);
+
+    }
+
+    @Override
+    public void deleteDutyPlan(Long id) {
+        DutyPlan plan = this.getById(id);
+        if(plan==null){
+            throw new BusinessException(70001,"排班计划不存在");
+        }
+        this.removeById(id);
+
     }
 }

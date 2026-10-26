@@ -3,6 +3,7 @@ package com.iecmp.duty.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyPlanAddDTO;
+import com.iecmp.duty.dto.DutyPlanUpdateDTO;
 import com.iecmp.duty.entity.DutyPlan;
 import com.iecmp.duty.query.DutyPlanPageQuery;
 import com.iecmp.duty.vo.DutyPlanCreateVO;
@@ -15,9 +16,11 @@ import com.iecmp.duty.vo.DutyPlanPageVO;
  * 实现具体接口时，把该表的专有业务方法声明在这里，并在 Impl 中实现。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-26
  */
 public interface DutyPlanService extends IService<DutyPlan> {
     PageResult<DutyPlanPageVO> page(DutyPlanPageQuery query);
     DutyPlanCreateVO add(DutyPlanAddDTO dto);
+    void putDutyPlan(DutyPlanUpdateDTO dto);
+    void deleteDutyPlan(Long id);
 }

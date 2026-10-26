@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-26
  */
 @Tag(name = "管理端-排班计划")
 @RestController
@@ -93,7 +93,8 @@ public class AdminDutyPlanController {
     @PutMapping("/admin/duty/plan")
     public Result<Void> putDutyPlan(@RequestBody @Valid DutyPlanUpdateDTO dto) {
         // TODO 待实现（接口 7-10）：见《IECMP-接口开发文档-v1.6.md》接口 7-10
-        return Result.todo("7-10");
+        dutyPlanService.putDutyPlan(dto);
+        return Result.success();
     }
 
     /**
@@ -109,7 +110,8 @@ public class AdminDutyPlanController {
     @DeleteMapping("/admin/duty/plan/{id}")
     public Result<Void> deleteDutyPlan(@PathVariable("id") Long id) {
         // TODO 待实现（接口 7-11）：见《IECMP-接口开发文档-v1.6.md》接口 7-11
-        return Result.todo("7-11");
+        dutyPlanService.deleteDutyPlan(id);
+        return Result.success();
     }
 
     /**
