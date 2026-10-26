@@ -1,8 +1,20 @@
 <template>
-  <!-- 根组件只保留路由出口；具体布局见 src/layouts/ -->
-  <router-view />
+  <el-config-provider :locale="elementLocale">
+    <router-view />
+  </el-config-provider>
 </template>
-
 <script setup>
-// 骨架占位：全局逻辑（如主题、水印、埋点）后续在此补充
+import 'dayjs/locale/zh-cn'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
+import { useAppStore } from '@/store/modules/app'
+const app = useAppStore()
+const elementLocale = computed(() => app.locale === 'en-US' ? en : zhCn)
+const media = window.matchMedia('(prefers-color-scheme: dark)')
+const sync = e => { app.systemDark = e.matches }
+onMounted(() => media.addEventListener('change', sync))
+onUnmounted(() => media.removeEventListener('change', sync))
+watch(() => app.dark, value => { document.documentElement.classList.toggle('dark', value); document.documentElement.style.colorScheme = value ? 'dark' : 'light' }, { immediate: true })
+watch(() => app.locale, value => { document.documentElement.lang = value }, { immediate: true })
 </script>
