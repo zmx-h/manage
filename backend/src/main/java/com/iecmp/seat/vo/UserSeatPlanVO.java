@@ -1,5 +1,7 @@
 package com.iecmp.seat.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -50,6 +52,16 @@ public class UserSeatPlanVO implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
+        /** 所属区域 ID（仅用于 Service 层分组，不返回前端） */
+        @JsonIgnore
+        @Schema(description = "所属区域 ID（仅用于分组，不返回前端）", hidden = true)
+        private Long areaId;
+
+        /** 使用人 ID（仅用于 Service 层判断 isMine，不返回前端） */
+        @JsonIgnore
+        @Schema(description = "使用人 ID（仅用于判断 isMine，不返回前端）", hidden = true)
+        private Long userId;
+
         /** 工位 ID */
         @Schema(description = "工位 ID")
         private Long seatId;
@@ -62,12 +74,10 @@ public class UserSeatPlanVO implements Serializable {
         @Schema(description = "1 工位，2 会议室，3 储物柜，4 其他")
         private Integer seatType;
 
-        /** X 坐标占底图宽度的百分比（0~100） */
-        @Schema(description = "X 坐标占底图宽度的百分比（0~100）")
+        @JsonProperty("xRatio")
         private BigDecimal xRatio;
 
-        /** Y 坐标占底图高度的百分比（0~100） */
-        @Schema(description = "Y 坐标占底图高度的百分比（0~100）")
+        @JsonProperty("yRatio")
         private BigDecimal yRatio;
 
         /** 宽度占底图宽度的百分比 */

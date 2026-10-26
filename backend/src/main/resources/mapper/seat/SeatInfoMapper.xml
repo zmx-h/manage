@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.seat.mapper.SeatInfoMapper">
+
+    <!--
+        5-01 平面图数据：按区域 ID 批量查询工位，LEFT JOIN sys_user 取使用人姓名。
+        areaId / userId 仅用于 Service 层分组与 isMine 判断（@JsonIgnore 不返回前端）；
+        isMine 不在 SQL 写死，由 Service 层遍历赋值。
+    -->
+    <select id="selectSeatListWithOccupant" resultType="com.iecmp.seat.vo.UserSeatPlanVO$SeatVO">
+        SELECT
+            s.id           AS seatId,
+            s.area_id      AS areaId,
+            s.seat_no      AS seatNo,
+            s.seat_type    AS seatType,
+            s.x_ratio      AS xRatio,
+            s.y_ratio      AS yRatio,
+            s.width_ratio  AS widthRatio,
+            s.height_ratio AS heightRatio,
+            s.rotation     AS rotation,
+            s.status       AS status,
+            s.user_id      AS userId,
+            u.real_name    AS occupantName
+        FROM seat_info s
+        LEFT JOIN sys_user u ON s.user_id = u.id
+        WHERE s.deleted = 0
+          AND s.area_id IN
+        <foreach collection="areaIds" item="aid" open="(" close=")" separator=",">
+            #{aid}
+        </foreach>
+    </select>
+
+</mapper>
