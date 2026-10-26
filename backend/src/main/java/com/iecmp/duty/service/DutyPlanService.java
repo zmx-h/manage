@@ -3,10 +3,13 @@ package com.iecmp.duty.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyPlanAddDTO;
+import com.iecmp.duty.dto.DutyPlanGenerateDTO;
+import com.iecmp.duty.dto.DutyPlanPublishDTO;
 import com.iecmp.duty.dto.DutyPlanUpdateDTO;
 import com.iecmp.duty.entity.DutyPlan;
 import com.iecmp.duty.query.DutyPlanPageQuery;
 import com.iecmp.duty.vo.DutyPlanCreateVO;
+import com.iecmp.duty.vo.DutyPlanGenerateVO;
 import com.iecmp.duty.vo.DutyPlanPageVO;
 
 /**
@@ -23,4 +26,6 @@ public interface DutyPlanService extends IService<DutyPlan> {
     DutyPlanCreateVO add(DutyPlanAddDTO dto);
     void putDutyPlan(DutyPlanUpdateDTO dto);
     void deleteDutyPlan(Long id);
+    DutyPlanGenerateVO postDutyPlanGenerate( Long id, DutyPlanGenerateDTO dto);
+    void putDutyPlanPublish(Long id, DutyPlanPublishDTO dto);
 }

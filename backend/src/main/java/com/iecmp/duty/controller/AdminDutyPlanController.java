@@ -127,7 +127,7 @@ public class AdminDutyPlanController {
     @PostMapping("/admin/duty/plan/{id}/generate")
     public Result<DutyPlanGenerateVO> postDutyPlanGenerate(@PathVariable("id") Long id, @RequestBody @Valid DutyPlanGenerateDTO dto) {
         // TODO 待实现（接口 7-12）：见《IECMP-接口开发文档-v1.6.md》接口 7-12
-        return Result.todo("7-12");
+        return Result.success(dutyPlanService.postDutyPlanGenerate(id,dto));
     }
 
     /**
@@ -143,6 +143,7 @@ public class AdminDutyPlanController {
     @PutMapping("/admin/duty/plan/{id}/publish")
     public Result<Void> putDutyPlanPublish(@PathVariable("id") Long id, @RequestBody @Valid DutyPlanPublishDTO dto) {
         // TODO 待实现（接口 7-13）：见《IECMP-接口开发文档-v1.6.md》接口 7-13
-        return Result.todo("7-13");
+        dutyPlanService.putDutyPlanPublish(id,dto);
+        return Result.success();
     }
 }
