@@ -31,4 +31,52 @@
         </foreach>
     </select>
 
+    <select id="selectSeatList" resultType="com.iecmp.seat.vo.SeatListVO">
+        SELECT
+            s.id          AS seatId,
+            s.area_id     AS areaId,
+            a.name        AS areaName,
+            s.seat_no     AS seatNo,
+            s.seat_type   AS seatType,
+            s.status      AS status,
+            u.real_name   AS occupantName,
+            s.assign_time AS assignTime
+        FROM seat_info s
+        LEFT JOIN seat_area a ON s.area_id = a.id
+        LEFT JOIN sys_user u ON s.user_id = u.id
+        WHERE s.deleted = 0
+          AND a.deleted = 0
+          AND u.deleted = 0
+        <if test="areaId != null">
+            AND s.area_id = #{areaId}
+        </if>
+        <if test="seatType != null">
+            AND s.seat_type = #{seatType}
+        </if>
+        <if test="status != null">
+            AND s.status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND s.seat_no LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY s.area_id ASC, s.seat_no ASC
+    </select>
+
+    <select id="selectMySeat" resultType="com.iecmp.seat.vo.SeatMyVO">
+        SELECT
+            s.id          AS seatId,
+            s.seat_no     AS seatNo,
+            s.seat_type   AS seatType,
+            s.area_id     AS areaId,
+            a.name        AS areaName,
+            s.assign_time AS assignTime,
+            s.x_ratio     AS xRatio,
+            s.y_ratio     AS yRatio
+        FROM seat_info s
+        LEFT JOIN seat_area a ON s.area_id = a.id AND a.deleted = 0
+        WHERE s.user_id = #{userId}
+          AND s.deleted = 0
+        LIMIT 1
+    </select>
+
 </mapper>
