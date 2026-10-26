@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * 同步日志业务实现（{@code repo_sync_log}）。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Service
 public class RepoSyncLogServiceImpl extends ServiceImpl<RepoSyncLogMapper, RepoSyncLog>

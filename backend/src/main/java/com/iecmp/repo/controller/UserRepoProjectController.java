@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>覆盖接口：2-07、2-08，共 2 个。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Tag(name = "用户端-仓库列表")
 @RestController

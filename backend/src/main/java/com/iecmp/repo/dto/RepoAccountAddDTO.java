@@ -12,7 +12,7 @@ import lombok.Data;
  *
  * <p>对应接口：2-02（详见《IECMP-接口开发文档-v1.6.md》）。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Data
 public class RepoAccountAddDTO implements Serializable {
