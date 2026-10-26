@@ -31,7 +31,7 @@ import java.util.List;
  * <p><b>返回值形状</b>：2-01 / 2-03 / 2-06 的 {@code data} 在接口文档里是数组，
  * 所以返回 {@code Result<List<...>>}——对应的 VO 类是数组元素类型，不是列表包装类。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Tag(name = "用户端-托管账户")
 @RestController

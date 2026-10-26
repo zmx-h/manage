@@ -26,7 +26,7 @@ import java.util.List;
  *   <li>{@code KEY idx_create_time (create_time)}</li>
  * </ul>
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Mapper
 public interface RepoSyncLogMapper extends BaseMapper<RepoSyncLog> {

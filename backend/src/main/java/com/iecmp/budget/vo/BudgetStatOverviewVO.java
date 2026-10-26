@@ -54,6 +54,10 @@ public class BudgetStatOverviewVO implements Serializable {
     @Schema(description = "月度支出趋势，元素含 `month`（yyyy-MM）、`amount`")
     private List<MonthTrendVO> monthTrend;
 
+    /** 科目额度之和超出周期总额度的科目名列表 */
+    @Schema(description = "科目额度之和超出周期总额度的科目名列表")
+    private List<String> overBudgetItems;
+
     /**
      * ItemStatVO：预算执行看板 响应体的嵌套结构，字段含义见接口文档。
      */

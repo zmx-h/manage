@@ -43,7 +43,7 @@ import java.util.List;
  * 为的是把 {@code successCount / failCount / commitCount / costMs} 如实填进响应。
  * 账户较多时这个请求会很久——抢不到锁会立刻以 20006 返回，不会出现两个补采互相等待。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Tag(name = "管理端-仓库与采集")
 @RestController

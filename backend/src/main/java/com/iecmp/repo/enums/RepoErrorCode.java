@@ -12,7 +12,7 @@ import lombok.Getter;
  * <p><b>常量命名</b>：统一为 {@code E<错误码>}，保证与接口文档一一对应且不重名；
  * 实现时如需更易读的常量名，可重命名并使用 IDE 重构，数值不可变更。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Getter
 public enum RepoErrorCode {

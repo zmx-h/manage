@@ -36,7 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @date 2026-10-22
  */
 @Tag(name = "管理端-排班计划")
 @RestController
@@ -60,7 +61,7 @@ public class AdminDutyPlanController {
     @GetMapping("/admin/duty/plan/page")
     public Result<PageResult<DutyPlanPageVO>> getDutyPlanPage(@ParameterObject DutyPlanPageQuery query) {
         // TODO 待实现（接口 7-08）：见《IECMP-接口开发文档-v1.6.md》接口 7-08
-        return Result.todo("7-08");
+        return Result.success(dutyPlanService.page(query));
     }
 
     /**
@@ -76,7 +77,7 @@ public class AdminDutyPlanController {
     @PostMapping("/admin/duty/plan")
     public Result<DutyPlanCreateVO> postDutyPlan(@RequestBody @Valid DutyPlanAddDTO dto) {
         // TODO 待实现（接口 7-09）：见《IECMP-接口开发文档-v1.6.md》接口 7-09
-        return Result.todo("7-09");
+        return Result.success(dutyPlanService.add(dto));
     }
 
     /**

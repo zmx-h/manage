@@ -16,10 +16,15 @@ export default [
       sourceType: 'module',
       globals: {
         window: 'readonly',
+        ResizeObserver: 'readonly',
         document: 'readonly',
         localStorage: 'readonly',
         console: 'readonly',
-        process: 'readonly'
+        process: 'readonly',
+        URL: 'readonly',
+        FormData: 'readonly',
+        Event: 'readonly',
+        setTimeout: 'readonly'
       }
     },
     rules: {

@@ -21,7 +21,7 @@ import org.apache.ibatis.annotations.Param;
  *   <li>{@code KEY idx_status (status)}</li>
  * </ul>
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Mapper
 public interface RepoAccountMapper extends BaseMapper<RepoAccount> {

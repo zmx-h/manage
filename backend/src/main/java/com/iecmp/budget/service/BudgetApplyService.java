@@ -1,10 +1,13 @@
 package com.iecmp.budget.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.iecmp.budget.dto.BudgetApplyAuditDTO;
 import com.iecmp.budget.dto.BudgetApplyDTO;
 import com.iecmp.budget.entity.BudgetApply;
+import com.iecmp.budget.query.BudgetApplyPageQuery;
 import com.iecmp.budget.vo.BudgetApplyDetailVO;
 import com.iecmp.budget.vo.BudgetApplyMyPageVO;
+import com.iecmp.budget.vo.BudgetApplyPageVO;
 import com.iecmp.budget.vo.BudgetApplyVO;
 import com.iecmp.budget.vo.BudgetStatMyVO;
 import com.iecmp.common.result.PageResult;
@@ -32,4 +35,10 @@ public interface BudgetApplyService extends IService<BudgetApply> {
 
     /** 3-09 我的经费汇总 */
     BudgetStatMyVO myStat(Long currentUserId, String year);
+
+    /** 3-20 申请审核分页（后台） */
+    PageResult<BudgetApplyPageVO> adminApplyPage(BudgetApplyPageQuery query);
+
+    /** 3-21 申请审核（通过 / 驳回） */
+    void auditApply(Long id, BudgetApplyAuditDTO dto, Long currentUserId);
 }

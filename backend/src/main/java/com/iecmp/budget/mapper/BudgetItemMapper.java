@@ -3,6 +3,7 @@ package com.iecmp.budget.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetItem;
 import com.iecmp.budget.vo.BudgetPeriodItemListVO;
+import com.iecmp.budget.vo.BudgetStatOverviewVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -31,4 +32,7 @@ public interface BudgetItemMapper extends BaseMapper<BudgetItem> {
 
     /** 3-05 提交申请时锁住科目，查剩余额度 */
     BudgetItem selectForUpdate(@Param("id") Long id);
+
+    /** 3-25 科目维度统计 */
+    List<BudgetStatOverviewVO.ItemStatVO> selectItemStats(@Param("periodId") Long periodId);
 }

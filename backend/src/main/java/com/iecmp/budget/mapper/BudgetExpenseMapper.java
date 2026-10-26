@@ -2,6 +2,8 @@ package com.iecmp.budget.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetExpense;
+import com.iecmp.budget.vo.AdminBudgetExpensePageVO;
+import com.iecmp.budget.vo.BudgetStatOverviewVO;
 import com.iecmp.budget.vo.UserBudgetExpensePageVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -48,4 +50,25 @@ public interface BudgetExpenseMapper extends BaseMapper<BudgetExpense> {
                          @Param("keyword") String keyword,
                          @Param("beginDate") String beginDate,
                          @Param("endDate") String endDate);
+
+    /** 3-23 支出分页（后台） */
+    List<AdminBudgetExpensePageVO> selectAdminPage(@Param("periodId") Long periodId,
+                                                   @Param("itemId") Long itemId,
+                                                   @Param("handlerId") Long handlerId,
+                                                   @Param("keyword") String keyword,
+                                                   @Param("beginDate") String beginDate,
+                                                   @Param("endDate") String endDate,
+                                                   @Param("offset") Integer offset,
+                                                   @Param("pageSize") Integer pageSize);
+
+    /** 3-23 配套总数 */
+    Long countAdminPage(@Param("periodId") Long periodId,
+                        @Param("itemId") Long itemId,
+                        @Param("handlerId") Long handlerId,
+                        @Param("keyword") String keyword,
+                        @Param("beginDate") String beginDate,
+                        @Param("endDate") String endDate);
+
+    /** 3-25 月度支出趋势 */
+    List<BudgetStatOverviewVO.MonthTrendVO> selectMonthTrend(@Param("periodId") Long periodId);
 }

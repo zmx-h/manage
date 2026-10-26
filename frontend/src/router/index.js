@@ -1,71 +1,33 @@
-import { createRouter, createWebHistory } from "vue-router"
-import { getAccessToken } from "@/utils/auth"
-import adminRoutes from "./routes/admin"
-import userRoutes from "./routes/user"
-
-// 路由总表：登录页 + 两套布局（管理端 / 用户端）
-export const routes = [
-  {
-    path: "/login",
-    name: "login",
-    component: () => import("@/views/login/UserLogin.vue"),
-    meta: { title: "登录", public: true }
-  },
-  {
-    path: "/admin/login",
-    name: "admin-login",
-    component: () => import("@/views/login/AdminLogin.vue"),
-    meta: { title: "管理端登录", public: true }
-  },
-  {
-    path: "/register",
-    name: "register",
-    component: () => import("@/views/login/Register.vue"),
-    meta: { title: "注册", public: true }
-  },
-  {
-    path: "/admin",
-    component: () => import("@/layouts/AdminLayout.vue"),
-    redirect: "/admin/dashboard",
-    children: adminRoutes
-  },
-  {
-    path: "/",
-    component: () => import("@/layouts/UserLayout.vue"),
-    redirect: "/home",
-    children: userRoutes
-  },
-  {
-    path: "/403",
-    name: "forbidden",
-    component: () => import("@/views/error/403.vue"),
-    meta: { title: "无访问权限", public: true }
-  },
-  {
-    path: "/:pathMatch(.*)*",
-    name: "not-found",
-    component: () => import("@/views/error/404.vue"),
-    meta: { title: "页面不存在", public: true }
+import { createRouter, createWebHistory } from 'vue-router'
+import { watch } from 'vue'
+import adminRoutes from './routes/admin'
+import userRoutes from './routes/user'
+import { useUserStore } from '@/store/modules/user'
+import { useAppStore } from '@/store/modules/app'
+const workspace = () => import('@/views/workspace/WorkspacePage.vue')
+const router = createRouter({ history: createWebHistory(), scrollBehavior: () => ({ top: 0 }), routes: [
+  { path: '/login', name: 'login', component: () => import('@/views/login/UserLogin.vue'), meta: { public: true, title: '成员登录', en: 'Member sign in' } },
+  { path: '/admin/login', name: 'admin-login', component: () => import('@/views/login/AdminLogin.vue'), meta: { public: true, title: '管理端登录', en: 'Administrator sign in' } },
+  { path: '/register', name: 'register', component: () => import('@/views/login/Register.vue'), meta: { public: true, title: '申请加入', en: 'Join the center' } },
+  { path: '/preview/:side(admin|user)/:page(.*)*', name: 'preview', component: () => import('@/layouts/WorkspaceLayout.vue'), meta: { public: true, preview: true }, children: [{ path: '', component: workspace }] },
+  { path: '/admin', component: () => import('@/layouts/AdminLayout.vue'), redirect: '/admin/dashboard', children: adminRoutes },
+  { path: '/', component: () => import('@/layouts/UserLayout.vue'), redirect: '/home', children: userRoutes },
+  { path: '/403', component: () => import('@/views/error/403.vue'), meta: { public: true, title: '无访问权限', en: 'Access restricted' } },
+  { path: '/:pathMatch(.*)*', component: () => import('@/views/error/404.vue'), meta: { public: true, title: '页面不存在', en: 'Page not found' } }
+] })
+router.beforeEach(async to => {
+  const user = useUserStore()
+  if (to.meta.public) return true
+  if (!user.logged) return { path: to.path.startsWith('/admin') ? '/admin/login' : '/login', query: { redirect: to.fullPath } }
+  if (!user.loaded) {
+    try { await user.fetchInfo() } catch { user.reset(); return { path: '/login', query: { redirect: to.fullPath } } }
   }
-]
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-  scrollBehavior: () => ({ top: 0 })
-})
-
-// 全局前置守卫：未登录跳登录页。
-// 骨架阶段只做登录判断；菜单与按钮的权限判断（useUserStore().hasPerm）待页面接入后开启。
-router.beforeEach((to) => {
-  document.title = (to.meta.title ? to.meta.title + " - " : "") + (import.meta.env.VITE_APP_TITLE || "IECMP")
-  if (to.meta.public) {
-    return true
-  }
-  if (!getAccessToken()) {
-    return { path: to.path.startsWith("/admin") ? "/admin/login" : "/login", query: { redirect: to.fullPath } }
-  }
+  if (to.path.startsWith('/admin') && !user.canAdmin) return '/403'
+  if (to.meta.perm && !user.hasPerm(to.meta.perm)) return '/403'
   return true
 })
-
+function updateTitle() { const app = useAppStore(); const meta = router.currentRoute.value.meta; document.title = `${app.locale === 'en-US' ? meta.en || 'Workspace' : meta.title || '工作空间'} · IECMP` }
+router.afterEach(updateTitle)
+window.addEventListener('iecmp:session-expired', () => { const admin = router.currentRoute.value.path.startsWith('/admin'); const redirect = router.currentRoute.value.fullPath; useUserStore().reset(); router.replace({ path: admin ? '/admin/login' : '/login', query: { redirect } }) })
+export function watchLocale() { watch(() => useAppStore().locale, updateTitle) }
 export default router

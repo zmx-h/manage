@@ -1,0 +1,713 @@
+[
+  {
+    "key": "admin-dashboard",
+    "path": "/admin/dashboard",
+    "side": "admin",
+    "title": "数据看板",
+    "en": "Overview",
+    "api": "8-11",
+    "create": [],
+    "actions": [],
+    "icon": "grid",
+    "group": "dashboard",
+    "permission": "common:stat:list"
+  },
+  {
+    "key": "admin-system-user",
+    "path": "/admin/system/user",
+    "side": "admin",
+    "title": "用户管理",
+    "en": "Members",
+    "api": "1-08",
+    "create": [
+      "1-10"
+    ],
+    "actions": [
+      "1-09",
+      "1-11",
+      "1-12",
+      "1-13",
+      "1-14"
+    ],
+    "icon": "users",
+    "group": "members",
+    "permission": "system:user:list"
+  },
+  {
+    "key": "admin-system-role",
+    "path": "/admin/system/role",
+    "side": "admin",
+    "title": "角色管理",
+    "en": "Roles",
+    "api": "1-16",
+    "create": [
+      "1-17"
+    ],
+    "actions": [
+      "1-18",
+      "1-20",
+      "1-19"
+    ],
+    "icon": "shield",
+    "group": "members",
+    "permission": "system:role:list"
+  },
+  {
+    "key": "admin-system-permission",
+    "path": "/admin/system/permission",
+    "side": "admin",
+    "title": "权限管理",
+    "en": "Permissions",
+    "api": "1-21",
+    "create": [],
+    "actions": [],
+    "icon": "shield",
+    "group": "members",
+    "permission": "登录即可"
+  },
+  {
+    "key": "admin-system-register",
+    "path": "/admin/system/register",
+    "side": "admin",
+    "title": "注册申请",
+    "en": "Membership requests",
+    "api": "1-25",
+    "create": [],
+    "actions": [
+      "1-26"
+    ],
+    "icon": "users",
+    "group": "members",
+    "permission": "system:register:list"
+  },
+  {
+    "key": "admin-system-invite",
+    "path": "/admin/system/invite",
+    "side": "admin",
+    "title": "邀请码管理",
+    "en": "Invite codes",
+    "api": "1-27",
+    "create": [
+      "1-28"
+    ],
+    "actions": [
+      "1-29"
+    ],
+    "icon": "shield",
+    "group": "members",
+    "permission": "system:invite:list"
+  },
+  {
+    "key": "admin-system-log",
+    "path": "/admin/system/log",
+    "side": "admin",
+    "title": "操作日志",
+    "en": "Audit logs",
+    "api": "8-12",
+    "create": [],
+    "actions": [],
+    "icon": "file",
+    "group": "members",
+    "permission": "system:log:list"
+  },
+  {
+    "key": "admin-repo",
+    "path": "/admin/repo",
+    "side": "admin",
+    "title": "仓库与贡献",
+    "en": "Accounts & repositories",
+    "api": "2-13",
+    "create": [
+      "2-17"
+    ],
+    "actions": [],
+    "icon": "code",
+    "group": "repo",
+    "permission": "repo:account:list"
+  },
+  {
+    "key": "admin-budget-period",
+    "path": "/admin/budget/period",
+    "side": "admin",
+    "title": "预算周期",
+    "en": "Budget periods",
+    "api": "3-10",
+    "create": [
+      "3-11"
+    ],
+    "actions": [
+      "3-12",
+      "3-14",
+      "3-15",
+      "3-13"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": "budget:period:list"
+  },
+  {
+    "key": "admin-budget-item",
+    "path": "/admin/budget/item",
+    "side": "admin",
+    "title": "预算科目",
+    "en": "Budget items",
+    "api": "3-03",
+    "create": [
+      "3-17"
+    ],
+    "actions": [
+      "3-18",
+      "3-19"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": "budget:item:edit"
+  },
+  {
+    "key": "admin-budget-apply",
+    "path": "/admin/budget/apply",
+    "side": "admin",
+    "title": "预算审核",
+    "en": "Budget reviews",
+    "api": "3-20",
+    "create": [],
+    "actions": [
+      "3-21"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": "budget:apply:list"
+  },
+  {
+    "key": "admin-budget-expense",
+    "path": "/admin/budget/expense",
+    "side": "admin",
+    "title": "支出登记",
+    "en": "Expenses",
+    "api": "3-23",
+    "create": [
+      "3-22"
+    ],
+    "actions": [
+      "3-24"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": "budget:expense:list"
+  },
+  {
+    "key": "admin-asset",
+    "path": "/admin/asset",
+    "side": "admin",
+    "title": "资产台账",
+    "en": "Asset register",
+    "api": "4-08",
+    "create": [
+      "4-10",
+      "4-27"
+    ],
+    "actions": [
+      "4-09",
+      "4-11",
+      "4-13",
+      "4-14",
+      "4-12"
+    ],
+    "icon": "box",
+    "group": "asset",
+    "permission": "asset:info:list"
+  },
+  {
+    "key": "admin-asset-category",
+    "path": "/admin/asset/category",
+    "side": "admin",
+    "title": "资产分类",
+    "en": "Asset categories",
+    "api": "4-03",
+    "create": [
+      "4-17"
+    ],
+    "actions": [
+      "4-18",
+      "4-19"
+    ],
+    "icon": "layers",
+    "group": "asset",
+    "permission": "asset:category:edit"
+  },
+  {
+    "key": "admin-asset-borrow",
+    "path": "/admin/asset/borrow",
+    "side": "admin",
+    "title": "借用审核",
+    "en": "Borrowing reviews",
+    "api": "4-20",
+    "create": [],
+    "actions": [
+      "4-21",
+      "4-22"
+    ],
+    "icon": "box",
+    "group": "asset",
+    "permission": "asset:borrow:list"
+  },
+  {
+    "key": "admin-asset-inventory",
+    "path": "/admin/asset/inventory",
+    "side": "admin",
+    "title": "资产盘点",
+    "en": "Inventory checks",
+    "api": "4-24",
+    "create": [
+      "4-23",
+      "4-25"
+    ],
+    "actions": [
+      "4-26"
+    ],
+    "icon": "box",
+    "group": "asset",
+    "permission": "asset:inventory:list"
+  },
+  {
+    "key": "admin-seat-plan",
+    "path": "/admin/seat/plan",
+    "side": "admin",
+    "title": "平面图管理",
+    "en": "Floor plans",
+    "api": "5-25",
+    "create": [
+      "5-08",
+      "5-11"
+    ],
+    "actions": [
+      "5-09",
+      "5-10"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": "seat:seat:list"
+  },
+  {
+    "key": "admin-seat-apply",
+    "path": "/admin/seat/apply",
+    "side": "admin",
+    "title": "工位申请",
+    "en": "Seat requests",
+    "api": "5-18",
+    "create": [],
+    "actions": [
+      "5-19"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": "seat:apply:list"
+  },
+  {
+    "key": "admin-seat-swap",
+    "path": "/admin/seat/swap",
+    "side": "admin",
+    "title": "调换审核",
+    "en": "Seat swap reviews",
+    "api": "5-23",
+    "create": [],
+    "actions": [
+      "5-24"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": "seat:swap:list"
+  },
+  {
+    "key": "admin-honor-alumni",
+    "path": "/admin/honor/alumni",
+    "side": "admin",
+    "title": "学长学姐管理",
+    "en": "Alumni directory",
+    "api": "6-05",
+    "create": [
+      "6-06",
+      "6-11"
+    ],
+    "actions": [
+      "6-07",
+      "6-09",
+      "6-10",
+      "6-08"
+    ],
+    "icon": "award",
+    "group": "honor",
+    "permission": "honor:alumni:list"
+  },
+  {
+    "key": "admin-honor-audit",
+    "path": "/admin/honor/audit",
+    "side": "admin",
+    "title": "展板审核",
+    "en": "Showcase reviews",
+    "api": "6-17",
+    "create": [],
+    "actions": [
+      "6-18"
+    ],
+    "icon": "award",
+    "group": "honor",
+    "permission": "honor:alumni:audit"
+  },
+  {
+    "key": "admin-duty-plan",
+    "path": "/admin/duty/plan",
+    "side": "admin",
+    "title": "排班计划",
+    "en": "Duty plans",
+    "api": "7-08",
+    "create": [
+      "7-09",
+      "7-21"
+    ],
+    "actions": [
+      "7-10",
+      "7-12",
+      "7-13",
+      "7-11"
+    ],
+    "icon": "calendar",
+    "group": "duty",
+    "permission": "duty:plan:list"
+  },
+  {
+    "key": "admin-duty-schedule",
+    "path": "/admin/duty/schedule",
+    "side": "admin",
+    "title": "值日安排",
+    "en": "Duty schedule",
+    "api": "7-17",
+    "create": [
+      "7-14"
+    ],
+    "actions": [
+      "7-15",
+      "7-18",
+      "7-16"
+    ],
+    "icon": "calendar",
+    "group": "duty",
+    "permission": "duty:schedule:list"
+  },
+  {
+    "key": "admin-duty-stat",
+    "path": "/admin/duty/stat",
+    "side": "admin",
+    "title": "值日统计",
+    "en": "Duty statistics",
+    "api": "7-19",
+    "create": [],
+    "actions": [],
+    "icon": "calendar",
+    "group": "duty",
+    "permission": "duty:stat:list"
+  },
+  {
+    "key": "admin-notice",
+    "path": "/admin/notice",
+    "side": "admin",
+    "title": "公告管理",
+    "en": "Notices",
+    "api": "8-06",
+    "create": [
+      "8-07"
+    ],
+    "actions": [
+      "8-08",
+      "8-09"
+    ],
+    "icon": "file",
+    "group": "common",
+    "permission": "common:notice:list"
+  },
+  {
+    "key": "admin-video",
+    "path": "/admin/video",
+    "side": "admin",
+    "title": "视频资源",
+    "en": "Video library",
+    "api": "8-16",
+    "create": [
+      "8-17"
+    ],
+    "actions": [
+      "8-18",
+      "8-19"
+    ],
+    "icon": "video",
+    "group": "common",
+    "permission": "common:video:list"
+  },
+  {
+    "key": "user-home",
+    "path": "/home",
+    "side": "user",
+    "title": "首页",
+    "en": "Overview",
+    "api": "8-10",
+    "create": [],
+    "actions": [],
+    "icon": "grid",
+    "group": "dashboard",
+    "permission": ""
+  },
+  {
+    "key": "user-profile",
+    "path": "/profile",
+    "side": "user",
+    "title": "个人中心",
+    "en": "My profile",
+    "api": "1-05",
+    "create": [],
+    "actions": [],
+    "icon": "users",
+    "group": "members",
+    "permission": ""
+  },
+  {
+    "key": "user-repo",
+    "path": "/repo",
+    "side": "user",
+    "title": "我的贡献",
+    "en": "My contributions",
+    "api": "2-03",
+    "create": [
+      "2-02"
+    ],
+    "actions": [
+      "2-04",
+      "2-05"
+    ],
+    "icon": "code",
+    "group": "repo",
+    "permission": ""
+  },
+  {
+    "key": "user-budget",
+    "path": "/budget",
+    "side": "user",
+    "title": "预算公示",
+    "en": "Published budgets",
+    "api": "3-01",
+    "create": [],
+    "actions": [
+      "3-02",
+      "3-03"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": ""
+  },
+  {
+    "key": "user-budget-apply",
+    "path": "/budget/apply",
+    "side": "user",
+    "title": "我的预算申请",
+    "en": "My budget requests",
+    "api": "3-06",
+    "create": [
+      "3-05"
+    ],
+    "actions": [
+      "3-07",
+      "3-08"
+    ],
+    "icon": "wallet",
+    "group": "budget",
+    "permission": ""
+  },
+  {
+    "key": "user-asset",
+    "path": "/asset",
+    "side": "user",
+    "title": "资产台账",
+    "en": "Available assets",
+    "api": "4-01",
+    "create": [],
+    "actions": [
+      "4-02",
+      "4-05"
+    ],
+    "icon": "box",
+    "group": "asset",
+    "permission": ""
+  },
+  {
+    "key": "user-asset-borrow",
+    "path": "/asset/borrow",
+    "side": "user",
+    "title": "我的借用",
+    "en": "My borrowing",
+    "api": "4-06",
+    "create": [],
+    "actions": [
+      "4-07"
+    ],
+    "icon": "box",
+    "group": "asset",
+    "permission": ""
+  },
+  {
+    "key": "user-seat",
+    "path": "/seat",
+    "side": "user",
+    "title": "工位平面图",
+    "en": "Seat map",
+    "api": "5-01",
+    "create": [],
+    "actions": [
+      "5-04"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": ""
+  },
+  {
+    "key": "user-seat-apply",
+    "path": "/seat/apply",
+    "side": "user",
+    "title": "我的工位申请",
+    "en": "My seat requests",
+    "api": "5-05",
+    "create": [
+      "5-04"
+    ],
+    "actions": [
+      "5-06"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": ""
+  },
+  {
+    "key": "user-seat-swap",
+    "path": "/seat/swap",
+    "side": "user",
+    "title": "座位调换",
+    "en": "Seat swaps",
+    "api": "5-21",
+    "create": [
+      "5-20"
+    ],
+    "actions": [
+      "5-22"
+    ],
+    "icon": "seat",
+    "group": "seat",
+    "permission": ""
+  },
+  {
+    "key": "user-honor",
+    "path": "/honor",
+    "side": "user",
+    "title": "学长学姐展板",
+    "en": "Alumni showcase",
+    "api": "6-01",
+    "create": [],
+    "actions": [
+      "6-02"
+    ],
+    "icon": "award",
+    "group": "honor",
+    "permission": ""
+  },
+  {
+    "key": "user-honor-submit",
+    "path": "/honor/submit",
+    "side": "user",
+    "title": "提交展板信息",
+    "en": "My showcase submissions",
+    "api": "6-15",
+    "create": [
+      "6-14"
+    ],
+    "actions": [
+      "6-19",
+      "6-16"
+    ],
+    "icon": "award",
+    "group": "honor",
+    "permission": ""
+  },
+  {
+    "key": "user-duty",
+    "path": "/duty",
+    "side": "user",
+    "title": "我的值日",
+    "en": "Duty schedule",
+    "api": "7-01",
+    "create": [],
+    "actions": [
+      "7-04",
+      "7-05"
+    ],
+    "icon": "calendar",
+    "group": "duty",
+    "permission": ""
+  },
+  {
+    "key": "user-duty-swap",
+    "path": "/duty/swap",
+    "side": "user",
+    "title": "换班申请",
+    "en": "Duty swaps",
+    "api": "7-06",
+    "create": [
+      "7-05"
+    ],
+    "actions": [
+      "7-07"
+    ],
+    "icon": "calendar",
+    "group": "duty",
+    "permission": ""
+  },
+  {
+    "key": "user-notice",
+    "path": "/notice",
+    "side": "user",
+    "title": "公告",
+    "en": "Notices",
+    "api": "8-05",
+    "create": [],
+    "actions": [],
+    "icon": "file",
+    "group": "common",
+    "permission": ""
+  },
+  {
+    "key": "user-message",
+    "path": "/message",
+    "side": "user",
+    "title": "站内消息",
+    "en": "Inbox",
+    "api": "8-20",
+    "create": [
+      "8-22"
+    ],
+    "actions": [
+      "8-22"
+    ],
+    "icon": "inbox",
+    "group": "common",
+    "permission": ""
+  },
+  {
+    "key": "user-video",
+    "path": "/video",
+    "side": "user",
+    "title": "展示视频",
+    "en": "Video library",
+    "api": "8-15",
+    "create": [],
+    "actions": [],
+    "icon": "video",
+    "group": "common",
+    "permission": ""
+  }
+]

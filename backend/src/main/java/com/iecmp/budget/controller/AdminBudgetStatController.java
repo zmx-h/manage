@@ -51,7 +51,6 @@ public class AdminBudgetStatController {
     @RequiresPerm("budget:stat:list")
     @GetMapping("/admin/budget/stat/overview")
     public Result<BudgetStatOverviewVO> getBudgetStatOverview(@ParameterObject BudgetStatOverviewQuery query) {
-        // TODO 待实现（接口 3-25）：见《IECMP-接口开发文档-v1.6.md》接口 3-25
-        return Result.todo("3-25");
+        return Result.success(budgetPeriodService.statOverview(query));
     }
 }

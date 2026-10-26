@@ -1,5 +1,6 @@
 package com.iecmp.duty.controller;
 
+
 import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
@@ -34,7 +35,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @date 2026-10-22
  */
 @Tag(name = "管理端-值日安排")
 @RestController
@@ -59,7 +61,7 @@ public class AdminDutyScheduleController {
     @PostMapping("/admin/duty/schedule")
     public Result<DutyScheduleCreateVO> postDutySchedule(@RequestBody @Valid DutyScheduleAddDTO dto) {
         // TODO 待实现（接口 7-14）：见《IECMP-接口开发文档-v1.6.md》接口 7-14
-        return Result.todo("7-14");
+        return Result.success(dutyScheduleService.add(dto));
     }
 
     /**
@@ -74,8 +76,9 @@ public class AdminDutyScheduleController {
     @OperLog(module = "管理端-值日安排", value = "修改值日条目")
     @PutMapping("/admin/duty/schedule")
     public Result<Void> putDutySchedule(@RequestBody @Valid DutyScheduleUpdateDTO dto) {
+        dutyScheduleService.update(dto);
         // TODO 待实现（接口 7-15）：见《IECMP-接口开发文档-v1.6.md》接口 7-15
-        return Result.todo("7-15");
+        return Result.success();
     }
 
     /**
@@ -91,7 +94,8 @@ public class AdminDutyScheduleController {
     @DeleteMapping("/admin/duty/schedule/{id}")
     public Result<Void> deleteDutySchedule(@PathVariable("id") Long id) {
         // TODO 待实现（接口 7-16）：见《IECMP-接口开发文档-v1.6.md》接口 7-16
-        return Result.todo("7-16");
+        dutyScheduleService.delete(id);
+        return Result.success();
     }
 
     /**
@@ -106,7 +110,7 @@ public class AdminDutyScheduleController {
     @GetMapping("/admin/duty/schedule/page")
     public Result<PageResult<AdminDutySchedulePageVO>> getDutySchedulePage(@ParameterObject AdminDutySchedulePageQuery query) {
         // TODO 待实现（接口 7-17）：见《IECMP-接口开发文档-v1.6.md》接口 7-17
-        return Result.todo("7-17");
+        return Result.success(dutyScheduleService.page(query));
     }
 
     /**

@@ -29,4 +29,19 @@
         FOR UPDATE
     </select>
 
+    <!-- 3-25 科目维度统计 -->
+    <select id="selectItemStats" resultType="com.iecmp.budget.vo.BudgetStatOverviewVO$ItemStatVO">
+        SELECT
+            i.id AS itemId,
+            i.name AS itemName,
+            i.category,
+            i.budget_amount AS budgetAmount,
+            i.used_amount AS usedAmount,
+            ROUND(i.used_amount / NULLIF(i.budget_amount, 0) * 100, 2) AS executionRate
+        FROM budget_item i
+        WHERE i.period_id = #{periodId}
+          AND i.deleted = 0
+        ORDER BY i.sort_no ASC
+    </select>
+
 </mapper>

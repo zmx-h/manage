@@ -11,6 +11,7 @@ import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
+import com.iecmp.common.util.LoginUserUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -58,8 +59,7 @@ public class AdminBudgetExpenseController {
     @OperLog(module = "管理端-支出登记", value = "登记支出")
     @PostMapping("/admin/budget/expense")
     public Result<BudgetExpenseCreateVO> postBudgetExpense(@RequestBody @Valid BudgetExpenseAddDTO dto) {
-        // TODO 待实现（接口 3-22）：见《IECMP-接口开发文档-v1.6.md》接口 3-22
-        return Result.todo("3-22");
+        return Result.success(budgetExpenseService.createExpense(dto, LoginUserUtil.getUserId()));
     }
 
     /**
@@ -73,8 +73,7 @@ public class AdminBudgetExpenseController {
     @RequiresPerm("budget:expense:list")
     @GetMapping("/admin/budget/expense/page")
     public Result<PageResult<AdminBudgetExpensePageVO>> getBudgetExpensePage(@ParameterObject AdminBudgetExpensePageQuery query) {
-        // TODO 待实现（接口 3-23）：见《IECMP-接口开发文档-v1.6.md》接口 3-23
-        return Result.todo("3-23");
+        return Result.success(budgetExpenseService.adminExpensePage(query));
     }
 
     /**
@@ -89,7 +88,7 @@ public class AdminBudgetExpenseController {
     @OperLog(module = "管理端-支出登记", value = "删除支出记录")
     @DeleteMapping("/admin/budget/expense/{id}")
     public Result<Void> deleteBudgetExpense(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 3-24）：见《IECMP-接口开发文档-v1.6.md》接口 3-24
-        return Result.todo("3-24");
+        budgetExpenseService.deleteExpense(id);
+        return Result.success();
     }
 }
