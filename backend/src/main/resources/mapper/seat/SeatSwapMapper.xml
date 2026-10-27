@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.seat.mapper.SeatSwapMapper">
+
+    <select id="selectMyPage" resultType="com.iecmp.seat.vo.SeatSwapMyPageVO">
+        SELECT
+            a.id               AS swapId,
+            a.apply_user_id    AS applyUserId,
+            u1.real_name       AS applyUserName,
+            a.apply_seat_id    AS applySeatId,
+            s1.seat_no         AS applySeatNo,
+            a.target_user_id   AS targetUserId,
+            u2.real_name       AS targetUserName,
+            a.target_seat_id   AS targetSeatId,
+            s2.seat_no         AS targetSeatNo,
+            a.reason           AS reason,
+            a.status           AS status,
+            a.handle_time      AS handleTime,
+            a.handle_remark    AS handleRemark,
+            u3.real_name       AS auditUserName,
+            a.audit_time       AS auditTime,
+            a.audit_remark     AS auditRemark,
+            a.create_time      AS createTime
+        FROM seat_swap a
+        LEFT JOIN sys_user u1 ON a.apply_user_id = u1.id AND u1.deleted = 0
+        LEFT JOIN sys_user u2 ON a.target_user_id = u2.id AND u2.deleted = 0
+        LEFT JOIN sys_user u3 ON a.audit_user_id = u3.id AND u3.deleted = 0
+        LEFT JOIN seat_info s1 ON a.apply_seat_id = s1.id AND s1.deleted = 0
+        LEFT JOIN seat_info s2 ON a.target_seat_id = s2.id AND s2.deleted = 0
+        WHERE a.deleted = 0
+        <if test="query.role != null and query.role == 1">
+            AND a.apply_user_id = #{currentUserId}
+        </if>
+        <if test="query.role != null and query.role == 2">
+            AND a.target_user_id = #{currentUserId}
+        </if>
+        <if test="query.role == null or query.role == 0">
+            AND (a.apply_user_id = #{currentUserId} OR a.target_user_id = #{currentUserId})
+        </if>
+        <if test="query.status != null">
+            AND a.status = #{query.status}
+        </if>
+        ORDER BY a.create_time DESC
+    </select>
+
+</mapper>

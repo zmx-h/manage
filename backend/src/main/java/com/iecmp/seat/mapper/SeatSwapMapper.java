@@ -1,8 +1,13 @@
 package com.iecmp.seat.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iecmp.seat.entity.SeatSwap;
+import com.iecmp.seat.query.SeatSwapMyPageQuery;
+import com.iecmp.seat.vo.SeatSwapMyPageVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 座位调换申请表（{@code seat_swap}）数据访问接口。
@@ -24,4 +29,6 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SeatSwapMapper extends BaseMapper<SeatSwap> {
+
+    IPage<SeatSwapMyPageVO> selectMyPage(Page<?> page, @Param("query") SeatSwapMyPageQuery query, @Param("currentUserId") Long currentUserId);
 }

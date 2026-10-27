@@ -3,6 +3,7 @@ package com.iecmp.seat.controller;
 import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
+import com.iecmp.common.util.LoginUserUtil;
 import com.iecmp.seat.dto.SeatSwapDTO;
 import com.iecmp.seat.dto.SeatSwapHandleDTO;
 import com.iecmp.seat.query.SeatSwapMyPageQuery;
@@ -54,8 +55,7 @@ public class UserSeatSwapController {
     @OperLog(module = "用户端-座位调换", value = "成员发起座位调换")
     @PostMapping("/user/seat/swap")
     public Result<SeatSwapVO> postSeatSwap(@RequestBody @Valid SeatSwapDTO dto) {
-        // TODO 待实现（接口 5-20）：见《IECMP-接口开发文档-v1.6.md》接口 5-20
-        return Result.todo("5-20");
+        return Result.success(seatSwapService.createSwap(dto, LoginUserUtil.getUserId()));
     }
 
     /**
@@ -68,8 +68,7 @@ public class UserSeatSwapController {
     @Operation(summary = "5-21 我的调换申请分页", description = "分页查询当前用户**发起或收到**的座位调换申请")
     @GetMapping("/user/seat/swap/my/page")
     public Result<PageResult<SeatSwapMyPageVO>> getSeatSwapMyPage(@ParameterObject SeatSwapMyPageQuery query) {
-        // TODO 待实现（接口 5-21）：见《IECMP-接口开发文档-v1.6.md》接口 5-21
-        return Result.todo("5-21");
+        return Result.success(seatSwapService.mySwapPage(query, LoginUserUtil.getUserId()));
     }
 
     /**
@@ -83,7 +82,7 @@ public class UserSeatSwapController {
     @OperLog(module = "用户端-座位调换", value = "调换对方确认 / 拒绝")
     @PutMapping("/user/seat/swap/{id}/handle")
     public Result<Void> putSeatSwapHandle(@PathVariable("id") Long id, @RequestBody @Valid SeatSwapHandleDTO dto) {
-        // TODO 待实现（接口 5-22）：见《IECMP-接口开发文档-v1.6.md》接口 5-22
-        return Result.todo("5-22");
+        seatSwapService.handleSwap(id, dto, LoginUserUtil.getUserId());
+        return Result.success(null);
     }
 }

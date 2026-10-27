@@ -2,6 +2,7 @@ package com.iecmp.seat.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import lombok.Data;
 
@@ -24,5 +25,6 @@ public class SeatSwapDTO implements Serializable {
 
     /** 调换理由，最长 500 字 */
     @Schema(description = "调换理由，最长 500 字")
+    @Size(max = 500, message = "调换理由不能超过 500 字")
     private String reason;
 }
