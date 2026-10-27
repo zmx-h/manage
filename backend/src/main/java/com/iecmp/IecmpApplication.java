@@ -11,7 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * <p>接口文档：{@code http://localhost:8080/api/swagger-ui/index.html}
  *
- * @author 后端组
+ * @author
  */
 @EnableAsync
 @EnableScheduling

@@ -46,6 +46,6 @@ public class AdminDutyStatController {
     @GetMapping("/admin/duty/stat/overview")
     public Result<DutyStatOverviewVO> getDutyStatOverview(@ParameterObject DutyStatOverviewQuery query) {
         // TODO 待实现（接口 7-19）：见《IECMP-接口开发文档-v1.6.md》接口 7-19
-        return Result.todo("7-19");
+        return Result.success(dutyScheduleService.getStatOverview(query));
     }
 }

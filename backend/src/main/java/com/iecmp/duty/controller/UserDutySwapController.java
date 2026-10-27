@@ -31,7 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @Date 2026.10.27
  */
 @Tag(name = "用户端-换班申请")
 @RestController
@@ -55,7 +56,7 @@ public class UserDutySwapController {
     @PostMapping("/user/duty/swap")
     public Result<DutySwapVO> postDutySwap(@RequestBody @Valid DutySwapDTO dto) {
         // TODO 待实现（接口 7-05）：见《IECMP-接口开发文档-v1.6.md》接口 7-05
-        return Result.todo("7-05");
+        return Result.success(dutySwapService.applySwap(dto));
     }
 
     /**
@@ -65,11 +66,10 @@ public class UserDutySwapController {
      *
      * <p>权限：登录即可；令牌：是；分页返回。
      */
-    @Operation(summary = "7-06 我的换班申请分页", description = "分页查询当前用户**发起或收到**的换班申请")
+    @Operation(summary = "7-06 我的换班申请分页")
     @GetMapping("/user/duty/swap/my/page")
-    public Result<PageResult<DutySwapMyPageVO>> getDutySwapMyPage(@ParameterObject DutySwapMyPageQuery query) {
-        // TODO 待实现（接口 7-06）：见《IECMP-接口开发文档-v1.6.md》接口 7-06
-        return Result.todo("7-06");
+    public Result<PageResult<DutySwapMyPageVO>> getMySwapPage(DutySwapMyPageQuery query) {
+        return Result.success(dutySwapService.pageMySwap(query));
     }
 
     /**
@@ -84,6 +84,7 @@ public class UserDutySwapController {
     @PutMapping("/user/duty/swap/{id}/handle")
     public Result<Void> putDutySwapHandle(@PathVariable("id") Long id, @RequestBody @Valid DutySwapHandleDTO dto) {
         // TODO 待实现（接口 7-07）：见《IECMP-接口开发文档-v1.6.md》接口 7-07
-        return Result.todo("7-07");
+        dutySwapService.handleSwap(id, dto);
+        return Result.success();
     }
 }

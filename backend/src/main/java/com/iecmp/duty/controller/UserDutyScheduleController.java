@@ -31,7 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @date 2026.10.27
  */
 @Tag(name = "用户端-我的值日")
 @RestController
@@ -54,7 +55,7 @@ public class UserDutyScheduleController {
     @GetMapping("/user/duty/schedule/page")
     public Result<PageResult<UserDutySchedulePageVO>> getDutySchedulePage(@ParameterObject UserDutySchedulePageQuery query) {
         // TODO 待实现（接口 7-01）：见《IECMP-接口开发文档-v1.6.md》接口 7-01
-        return Result.todo("7-01");
+        return Result.success(dutyScheduleService.pagePublic(query));
     }
 
     /**
@@ -68,7 +69,7 @@ public class UserDutyScheduleController {
     @GetMapping("/user/duty/schedule/my")
     public Result<DutyScheduleMyVO> getDutyScheduleMy() {
         // TODO 待实现（接口 7-02）：见《IECMP-接口开发文档-v1.6.md》接口 7-02
-        return Result.todo("7-02");
+        return Result.success(dutyScheduleService.getMyDuty());
     }
 
     /**
@@ -82,7 +83,7 @@ public class UserDutyScheduleController {
     @GetMapping("/user/duty/schedule/calendar")
     public Result<DutyScheduleCalendarVO> getDutyScheduleCalendar(@ParameterObject DutyScheduleCalendarQuery query) {
         // TODO 待实现（接口 7-03）：见《IECMP-接口开发文档-v1.6.md》接口 7-03
-        return Result.todo("7-03");
+        return Result.success(dutyScheduleService.getCalendar(query));
     }
 
     /**
@@ -97,6 +98,7 @@ public class UserDutyScheduleController {
     @PutMapping("/user/duty/schedule/{id}/confirm")
     public Result<Void> putDutyScheduleConfirm(@PathVariable("id") Long id, @RequestBody @Valid DutyScheduleConfirmDTO dto) {
         // TODO 待实现（接口 7-04）：见《IECMP-接口开发文档-v1.6.md》接口 7-04
-        return Result.todo("7-04");
+        dutyScheduleService.confirm(id, dto);
+        return Result.success();
     }
 }

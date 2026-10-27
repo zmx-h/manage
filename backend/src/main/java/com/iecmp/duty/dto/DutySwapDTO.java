@@ -10,7 +10,8 @@ import lombok.Data;
  *
  * <p>对应接口：7-05（详见《IECMP-接口开发文档-v1.6.md》）。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @Date 2026.10.27
  */
 @Data
 public class DutySwapDTO implements Serializable {

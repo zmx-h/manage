@@ -2,20 +2,15 @@ package com.iecmp.duty.query;
 
 import com.iecmp.common.base.PageQuery;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.io.Serializable;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
- * 值日安排分页（公示） 查询条件。
- *
- * <p>对应接口：7-01（详见《IECMP-接口开发文档-v1.6.md》）。
- *
- * @author IECMP 后端组
+ * 7-01 值日安排分页 查询参数。
  */
 @Data
-public class UserDutySchedulePageQuery extends PageQuery implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+@EqualsAndHashCode(callSuper = true)
+public class UserDutySchedulePageQuery extends PageQuery {
 
     /** 排班计划 ID */
     @Schema(description = "排班计划 ID")
