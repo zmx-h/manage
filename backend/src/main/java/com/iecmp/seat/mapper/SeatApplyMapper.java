@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iecmp.seat.entity.SeatApply;
 import com.iecmp.seat.query.SeatApplyMyPageQuery;
+import com.iecmp.seat.query.SeatApplyPageQuery;
 import com.iecmp.seat.vo.SeatApplyMyPageVO;
+import com.iecmp.seat.vo.SeatApplyPageVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -30,4 +32,6 @@ import org.apache.ibatis.annotations.Param;
 public interface SeatApplyMapper extends BaseMapper<SeatApply> {
 
     IPage<SeatApplyMyPageVO> selectMyPage(Page<?> page, @Param("userId") Long userId, @Param("query") SeatApplyMyPageQuery query);
+
+    IPage<SeatApplyPageVO> selectAdminPage(Page<?> page, @Param("query") SeatApplyPageQuery query);
 }

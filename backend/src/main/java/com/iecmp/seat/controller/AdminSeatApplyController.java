@@ -52,8 +52,7 @@ public class AdminSeatApplyController {
     @RequiresPerm("seat:apply:list")
     @GetMapping("/admin/seat/apply/page")
     public Result<PageResult<SeatApplyPageVO>> getSeatApplyPage(@ParameterObject SeatApplyPageQuery query) {
-        // TODO 待实现（接口 5-18）：见《IECMP-接口开发文档-v1.6.md》接口 5-18
-        return Result.todo("5-18");
+        return Result.success(seatApplyService.adminApplyPage(query));
     }
 
     /**
@@ -68,7 +67,7 @@ public class AdminSeatApplyController {
     @OperLog(module = "管理端-工位申请审核", value = "工位申请审核")
     @PutMapping("/admin/seat/apply/{id}/audit")
     public Result<Void> putSeatApplyAudit(@PathVariable("id") Long id, @RequestBody @Valid SeatApplyAuditDTO dto) {
-        // TODO 待实现（接口 5-19）：见《IECMP-接口开发文档-v1.6.md》接口 5-19
-        return Result.todo("5-19");
+        seatApplyService.auditApply(id, dto);
+        return Result.success();
     }
 }

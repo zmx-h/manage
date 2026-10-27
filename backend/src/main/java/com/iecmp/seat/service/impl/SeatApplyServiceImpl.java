@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.PageResult;
+import com.iecmp.seat.dto.SeatApplyAuditDTO;
 import com.iecmp.seat.dto.SeatApplyDTO;
 import com.iecmp.seat.entity.SeatApply;
 import com.iecmp.seat.entity.SeatArea;
@@ -14,11 +15,16 @@ import com.iecmp.seat.mapper.SeatApplyMapper;
 import com.iecmp.seat.mapper.SeatAreaMapper;
 import com.iecmp.seat.mapper.SeatInfoMapper;
 import com.iecmp.seat.query.SeatApplyMyPageQuery;
+import com.iecmp.seat.query.SeatApplyPageQuery;
 import com.iecmp.seat.service.SeatApplyService;
 import com.iecmp.seat.vo.SeatApplyMyPageVO;
+import com.iecmp.seat.vo.SeatApplyPageVO;
 import com.iecmp.seat.vo.SeatApplyVO;
+import com.iecmp.common.util.LoginUserUtil;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -72,6 +78,12 @@ public class SeatApplyServiceImpl extends ServiceImpl<SeatApplyMapper, SeatApply
     }
 
     @Override
+    public PageResult<SeatApplyPageVO> adminApplyPage(SeatApplyPageQuery query) {
+        Page<SeatApplyPageVO> page = new Page<>(query.getPageNum(), query.getPageSize());
+        return PageResult.of(baseMapper.selectAdminPage(page, query));
+    }
+
+    @Override
     public void cancelApply(Long id, Long userId) {
         SeatApply apply = this.getById(id);
         if (apply == null) {
@@ -84,6 +96,61 @@ public class SeatApplyServiceImpl extends ServiceImpl<SeatApplyMapper, SeatApply
             throw new BusinessException(SeatErrorCode.E50008.getCode(), SeatErrorCode.E50008.getMsg());
         }
         apply.setStatus(3);
+        this.updateById(apply);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void auditApply(Long id, SeatApplyAuditDTO dto) {
+        SeatApply apply = this.getById(id);
+        if (apply == null) {
+            throw new BusinessException(SeatErrorCode.E50006.getCode(), SeatErrorCode.E50006.getMsg());
+        }
+        if (apply.getStatus() != 0) {
+            throw new BusinessException(SeatErrorCode.E50008.getCode(), SeatErrorCode.E50008.getMsg());
+        }
+        Long auditUserId = LoginUserUtil.getUserId();
+        if (dto.getAuditStatus() == 2) {
+            apply.setStatus(2);
+            apply.setAuditUserId(auditUserId);
+            apply.setAuditTime(LocalDateTime.now());
+            apply.setAuditRemark(dto.getAuditRemark());
+            this.updateById(apply);
+            return;
+        }
+        Long targetSeatId = dto.getAssignSeatId() != null ? dto.getAssignSeatId() : apply.getSeatId();
+        if (targetSeatId == null) {
+            throw new BusinessException(SeatErrorCode.E50003.getCode(), SeatErrorCode.E50003.getMsg());
+        }
+        SeatInfo target = seatInfoMapper.selectById(targetSeatId);
+        if (target == null) {
+            throw new BusinessException(SeatErrorCode.E50003.getCode(), SeatErrorCode.E50003.getMsg());
+        }
+        if (target.getStatus() != null && target.getStatus() == 2) {
+            throw new BusinessException(SeatErrorCode.E50005.getCode(), SeatErrorCode.E50005.getMsg());
+        }
+        if (target.getUserId() != null) {
+            throw new BusinessException(SeatErrorCode.E50005.getCode(), SeatErrorCode.E50005.getMsg());
+        }
+        SeatInfo oldSeat = seatInfoMapper.selectOne(new LambdaQueryWrapper<SeatInfo>()
+                .eq(SeatInfo::getUserId, apply.getUserId()));
+        if (oldSeat != null) {
+            oldSeat.setUserId(null);
+            oldSeat.setStatus(1);
+            oldSeat.setAssignTime(null);
+            seatInfoMapper.updateById(oldSeat);
+        }
+        target.setUserId(apply.getUserId());
+        target.setStatus(2);
+        target.setAssignTime(LocalDateTime.now());
+        if (seatInfoMapper.updateById(target) == 0) {
+            throw new BusinessException(SeatErrorCode.E50005.getCode(), SeatErrorCode.E50005.getMsg());
+        }
+        apply.setStatus(1);
+        apply.setAssignSeatId(targetSeatId);
+        apply.setAuditUserId(auditUserId);
+        apply.setAuditTime(LocalDateTime.now());
+        apply.setAuditRemark(dto.getAuditRemark());
         this.updateById(apply);
     }
 }

@@ -34,4 +34,52 @@
         ORDER BY a.create_time DESC
     </select>
 
+    <select id="selectAdminPage" resultType="com.iecmp.seat.vo.SeatApplyPageVO">
+        SELECT
+            a.id            AS applyId,
+            a.user_id       AS userId,
+            u1.real_name    AS userName,
+            u1.grade        AS grade,
+            s2.id           AS currentSeatId,
+            s2.seat_no      AS currentSeatNo,
+            a.area_id       AS areaId,
+            ar.name         AS areaName,
+            a.seat_id       AS seatId,
+            s1.seat_no      AS seatNo,
+            s1.status       AS seatStatus,
+            a.reason        AS reason,
+            a.status        AS status,
+            u2.real_name    AS auditUserName,
+            a.audit_time    AS auditTime,
+            a.audit_remark  AS auditRemark,
+            a.create_time   AS createTime
+        FROM seat_apply a
+        LEFT JOIN sys_user u1 ON a.user_id = u1.id AND u1.deleted = 0
+        LEFT JOIN sys_user u2 ON a.audit_user_id = u2.id AND u2.deleted = 0
+        LEFT JOIN seat_area ar ON a.area_id = ar.id AND ar.deleted = 0
+        LEFT JOIN seat_info s1 ON a.seat_id = s1.id AND s1.deleted = 0
+        LEFT JOIN seat_info s2 ON a.user_id = s2.user_id AND s2.deleted = 0
+        WHERE a.deleted = 0
+        <if test="query.status != null">
+            AND a.status = #{query.status}
+        </if>
+        <if test="query.areaId != null">
+            AND a.area_id = #{query.areaId}
+        </if>
+        <if test="query.userId != null">
+            AND a.user_id = #{query.userId}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (u1.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR s1.seat_no LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.beginTime != null and query.beginTime != ''">
+            AND a.create_time &gt;= #{query.beginTime}
+        </if>
+        <if test="query.endTime != null and query.endTime != ''">
+            AND a.create_time &lt;= #{query.endTime}
+        </if>
+        ORDER BY a.create_time DESC
+    </select>
+
 </mapper>
