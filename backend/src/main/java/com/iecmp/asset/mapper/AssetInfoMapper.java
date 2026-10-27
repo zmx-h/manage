@@ -14,10 +14,10 @@ import org.apache.ibatis.annotations.Mapper;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code UNIQUE KEY uk_asset_no (asset_no, deleted)}</li>
- *   <li>{@code KEY idx_category_id (category_id)}</li>
+ *   <li>{@code KEY idx_category_create_time (category_id, create_time)}</li>
  *   <li>{@code KEY idx_keeper_id (keeper_id)}</li>
  *   <li>{@code KEY idx_budget_expense_id (budget_expense_id)}</li>
- *   <li>{@code KEY idx_status (status)}</li>
+ *   <li>{@code KEY idx_status_create_time (status, create_time)}</li>
  * </ul>
  *
  * @author IECMP 后端组

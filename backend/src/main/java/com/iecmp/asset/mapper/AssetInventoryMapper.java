@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Mapper;
  * <p>本表索引：
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
- *   <li>{@code KEY idx_status (status)}</li>
+ *   <li>{@code KEY idx_status_begin_time (status, begin_time)}</li>
  *   <li>{@code KEY idx_begin_time (begin_time)}</li>
  * </ul>
  *

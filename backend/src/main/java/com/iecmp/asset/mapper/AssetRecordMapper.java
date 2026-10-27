@@ -14,8 +14,9 @@ import org.apache.ibatis.annotations.Mapper;
  * <ul>
  *   <li>{@code PRIMARY KEY (id)}</li>
  *   <li>{@code KEY idx_asset_time (asset_id, record_time)}</li>
- *   <li>{@code KEY idx_record_type (record_type)}</li>
- *   <li>{@code KEY idx_operator_id (operator_id)}</li>
+ *   <li>{@code KEY idx_record_time (record_time)}</li>
+ *   <li>{@code KEY idx_record_type_time (record_type, record_time)}</li>
+ *   <li>{@code KEY idx_operator_time (operator_id, record_time)}</li>
  * </ul>
  *
  * @author IECMP 后端组

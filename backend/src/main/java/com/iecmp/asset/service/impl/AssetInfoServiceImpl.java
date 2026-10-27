@@ -1,6 +1,8 @@
 package com.iecmp.asset.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -39,6 +41,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +49,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -254,25 +258,23 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AssetCreateVO add(AssetAddDTO dto) {
-        // 1. 资产编号唯一性校验
         Long count = this.count(Wrappers.lambdaQuery(AssetInfo.class)
-                .eq(AssetInfo::getAssetNo, dto.getAssetNo()));
+                .eq(AssetInfo::getAssetNo, dto.getAssetNo().trim()));
         if (count > 0) {
             throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
         }
 
-        // 2. 分类存在性校验
         if (dto.getCategoryId() != null) {
             AssetCategory category = assetCategoryService.getById(dto.getCategoryId());
             if (category == null) {
                 throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
             }
         }
+        validateSourceType(dto.getSourceType());
 
-        // 3. 组装实体
         AssetInfo entity = new AssetInfo();
-        entity.setAssetNo(dto.getAssetNo());
-        entity.setName(dto.getName());
+        entity.setAssetNo(dto.getAssetNo().trim());
+        entity.setName(dto.getName().trim());
         entity.setCategoryId(dto.getCategoryId());
         entity.setBrand(dto.getBrand());
         entity.setModel(dto.getModel());
@@ -288,57 +290,122 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         entity.setWarrantyEndDate(parseDate(dto.getWarrantyEndDate()));
         entity.setRemark(dto.getRemark());
 
-        this.save(entity);
+        try {
+            this.save(entity);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
+        }
 
         AssetCreateVO vo = new AssetCreateVO();
         vo.setAssetId(entity.getId());
         return vo;
     }
-
     // ============================== 4-11 修改资产 ==============================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(AssetUpdateDTO dto) {
-        // 1. 资产存在性校验
-        AssetInfo entity = this.getById(dto.getAssetId());
-        if (entity == null) {
+        AssetInfo current = this.getById(dto.getAssetId());
+        if (current == null) {
             throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
         }
 
-        // 2. 资产编号唯一性校验（排除自身）
-        Long count = this.count(Wrappers.lambdaQuery(AssetInfo.class)
-                .eq(AssetInfo::getAssetNo, dto.getAssetNo())
-                .ne(AssetInfo::getId, dto.getAssetId()));
-        if (count > 0) {
-            throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
+        String assetNo = null;
+        if (dto.getAssetNo() != null) {
+            assetNo = dto.getAssetNo().trim();
+            if (assetNo.isEmpty()) {
+                throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "资产编号不能为空字符串");
+            }
+            if (!assetNo.equals(current.getAssetNo())) {
+                Long count = this.count(Wrappers.lambdaQuery(AssetInfo.class)
+                        .eq(AssetInfo::getAssetNo, assetNo)
+                        .ne(AssetInfo::getId, dto.getAssetId()));
+                if (count > 0) {
+                    throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
+                }
+            }
         }
 
-        // 3. 分类存在性校验
+        String name = null;
+        if (dto.getName() != null) {
+            name = dto.getName().trim();
+            if (name.isEmpty()) {
+                throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "资产名称不能为空字符串");
+            }
+        }
+
         if (dto.getCategoryId() != null) {
             AssetCategory category = assetCategoryService.getById(dto.getCategoryId());
             if (category == null) {
                 throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
             }
         }
+        validateSourceType(dto.getSourceType());
 
-        // 4. 更新基础字段（不修改 status / keeperId / location）
-        entity.setAssetNo(dto.getAssetNo());
-        entity.setName(dto.getName());
-        entity.setCategoryId(dto.getCategoryId());
-        entity.setBrand(dto.getBrand());
-        entity.setModel(dto.getModel());
-        entity.setPrice(dto.getPrice() == null ? BigDecimal.ZERO : dto.getPrice());
-        entity.setPurchaseDate(parseDate(dto.getPurchaseDate()));
-        entity.setSupplier(dto.getSupplier());
-        entity.setSourceType(dto.getSourceType() == null ? 1 : dto.getSourceType());
-        entity.setBudgetExpenseId(dto.getBudgetExpenseId());
-        entity.setWarrantyEndDate(parseDate(dto.getWarrantyEndDate()));
-        entity.setRemark(dto.getRemark());
+        // 只更新请求中出现的字段；空字符串日期按“清空”处理，未传字段保持原值。
+        var update = Wrappers.<AssetInfo>lambdaUpdate().eq(AssetInfo::getId, dto.getAssetId());
+        boolean hasChanges = false;
+        if (assetNo != null) {
+            update.set(AssetInfo::getAssetNo, assetNo);
+            hasChanges = true;
+        }
+        if (name != null) {
+            update.set(AssetInfo::getName, name);
+            hasChanges = true;
+        }
+        if (dto.getCategoryId() != null) {
+            update.set(AssetInfo::getCategoryId, dto.getCategoryId());
+            hasChanges = true;
+        }
+        if (dto.getBrand() != null) {
+            update.set(AssetInfo::getBrand, dto.getBrand());
+            hasChanges = true;
+        }
+        if (dto.getModel() != null) {
+            update.set(AssetInfo::getModel, dto.getModel());
+            hasChanges = true;
+        }
+        if (dto.getPrice() != null) {
+            update.set(AssetInfo::getPrice, dto.getPrice());
+            hasChanges = true;
+        }
+        if (dto.getPurchaseDate() != null) {
+            update.set(AssetInfo::getPurchaseDate, parseDate(dto.getPurchaseDate()));
+            hasChanges = true;
+        }
+        if (dto.getSupplier() != null) {
+            update.set(AssetInfo::getSupplier, dto.getSupplier());
+            hasChanges = true;
+        }
+        if (dto.getSourceType() != null) {
+            update.set(AssetInfo::getSourceType, dto.getSourceType());
+            hasChanges = true;
+        }
+        if (dto.getBudgetExpenseId() != null) {
+            update.set(AssetInfo::getBudgetExpenseId, dto.getBudgetExpenseId());
+            hasChanges = true;
+        }
+        if (dto.getWarrantyEndDate() != null) {
+            update.set(AssetInfo::getWarrantyEndDate, parseDate(dto.getWarrantyEndDate()));
+            hasChanges = true;
+        }
+        if (dto.getRemark() != null) {
+            update.set(AssetInfo::getRemark, dto.getRemark());
+            hasChanges = true;
+        }
 
-        this.updateById(entity);
+        if (!hasChanges) {
+            return;
+        }
+        try {
+            int rows = baseMapper.update(null, update);
+            if (rows == 0) {
+                throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
+            }
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
+        }
     }
-
     // ============================== 4-12 删除资产 ==============================
 
     @Override
@@ -350,12 +417,15 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
             throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
         }
 
+        if (AssetStatusEnum.BORROWED.getValue().equals(entity.getStatus())) {
+            throw new BusinessException(AssetErrorCode.E40007.getCode(), AssetErrorCode.E40007.getMsg());
+        }
         // 2. 存在未归还借用记录（待审核 0 / 已通过 1 / 已逾期 4）则禁止删除
         Long unreturned = assetBorrowService.count(Wrappers.lambdaQuery(AssetBorrow.class)
                 .eq(AssetBorrow::getAssetId, id)
                 .in(AssetBorrow::getStatus, 0, 1, 4));
         if (unreturned > 0) {
-            throw new BusinessException(AssetErrorCode.E40007.getCode(), AssetErrorCode.E40007.getMsg());
+            throw new BusinessException(AssetErrorCode.E40020.getCode(), AssetErrorCode.E40020.getMsg());
         }
 
         // 3. 逻辑删除（@TableLogic 自动维护 deleted）
@@ -387,9 +457,14 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
             throw new BusinessException(AssetErrorCode.E40006.getCode(), AssetErrorCode.E40006.getMsg());
         }
 
-        // 4. 更新状态
-        entity.setStatus(target);
-        this.updateById(entity);
+        // 4. 条件更新状态，避免并发状态变更覆盖
+        int rows = baseMapper.update(null, Wrappers.<AssetInfo>lambdaUpdate()
+                .eq(AssetInfo::getId, id)
+                .eq(AssetInfo::getStatus, current)
+                .set(AssetInfo::getStatus, target));
+        if (rows == 0) {
+            throw new BusinessException(AssetErrorCode.E40006.getCode(), AssetErrorCode.E40006.getMsg());
+        }
 
         // 5. 写入变动流水
         AssetRecord record = new AssetRecord();
@@ -410,7 +485,6 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assign(Long id, AssetAssignDTO dto) {
-        // 1. 资产存在性校验
         AssetInfo entity = this.getById(id);
         if (entity == null) {
             throw new BusinessException(AssetErrorCode.E40001.getCode(), AssetErrorCode.E40001.getMsg());
@@ -419,34 +493,49 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         Long oldKeeperId = entity.getKeeperId();
         String oldLocation = entity.getLocation();
 
-        // 2. 计算新值：keeperId == null 不变；location == null 不变，空串清空
         Long newKeeperId = dto.getKeeperId() == null ? oldKeeperId : dto.getKeeperId();
-        String newLocation = dto.getLocation() == null ? oldLocation : dto.getLocation();
+        String newLocation = dto.getLocation() == null
+                ? oldLocation
+                : (dto.getLocation().isBlank() ? null : dto.getLocation().trim());
+        if (newKeeperId != null && sysUserService.getById(newKeeperId) == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "保管人不存在");
+        }
 
         boolean keeperChanged = !java.util.Objects.equals(oldKeeperId, newKeeperId);
         boolean locationChanged = !java.util.Objects.equals(oldLocation, newLocation);
-
-        // 3. 任一发生变化则写入调拨流水
-        if (keeperChanged || locationChanged) {
-            AssetRecord record = new AssetRecord();
-            record.setAssetId(id);
-            record.setRecordType(AssetRecordTypeEnum.ALLOCATION.getValue());
-            record.setFromUserId(oldKeeperId);
-            record.setToUserId(newKeeperId);
-            record.setFromLocation(oldLocation);
-            record.setToLocation(newLocation);
-            record.setRecordTime(LocalDateTime.now());
-            record.setOperatorId(UserContext.getUserIdOrDefault());
-            record.setRemark(dto.getRemark());
-            assetRecordService.save(record);
+        if (!keeperChanged && !locationChanged) {
+            return;
         }
 
-        // 4. 更新
-        entity.setKeeperId(newKeeperId);
-        entity.setLocation(newLocation);
-        this.updateById(entity);
-    }
+        AssetRecord record = new AssetRecord();
+        record.setAssetId(id);
+        record.setRecordType(AssetRecordTypeEnum.ALLOCATION.getValue());
+        record.setFromUserId(oldKeeperId);
+        record.setToUserId(newKeeperId);
+        record.setFromLocation(oldLocation);
+        record.setToLocation(newLocation);
+        record.setRecordTime(LocalDateTime.now());
+        record.setOperatorId(UserContext.getUserIdOrDefault());
+        record.setRemark(dto.getRemark());
+        assetRecordService.save(record);
 
+        // 只更新保管人与位置，并用旧值做一次乐观并发校验，避免把期间的状态变更整行覆盖。
+        var update = Wrappers.<AssetInfo>lambdaUpdate().eq(AssetInfo::getId, id);
+        if (oldKeeperId == null) {
+            update.isNull(AssetInfo::getKeeperId);
+        } else {
+            update.eq(AssetInfo::getKeeperId, oldKeeperId);
+        }
+        if (oldLocation == null) {
+            update.isNull(AssetInfo::getLocation);
+        } else {
+            update.eq(AssetInfo::getLocation, oldLocation);
+        }
+        update.set(AssetInfo::getKeeperId, newKeeperId).set(AssetInfo::getLocation, newLocation);
+        if (baseMapper.update(null, update) == 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "资产信息已被他人修改，请刷新后重试");
+        }
+    }
     // ============================== 4-01 资产分页（前台） ==============================
 
     @Override
@@ -553,38 +642,40 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
 
     @Override
     public AssetStatOverviewVO statOverview() {
-        List<AssetInfo> all = this.list();
+        QueryWrapper<AssetInfo> statWrapper = new QueryWrapper<>();
+        statWrapper.select(
+                "COUNT(*) AS total",
+                "COALESCE(SUM(price), 0) AS total_value",
+                "COALESCE(SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END), 0) AS in_use",
+                "COALESCE(SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END), 0) AS idle",
+                "COALESCE(SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END), 0) AS repair",
+                "COALESCE(SUM(CASE WHEN status = 4 THEN 1 ELSE 0 END), 0) AS borrowed",
+                "COALESCE(SUM(CASE WHEN status = 5 THEN 1 ELSE 0 END), 0) AS scrapped");
+        List<Map<String, Object>> statRows = baseMapper.selectMaps(statWrapper);
+        Map<String, Object> row = statRows.isEmpty() ? Collections.emptyMap() : statRows.get(0);
 
         AssetStatOverviewVO vo = new AssetStatOverviewVO();
-        vo.setTotal(all.size());
+        vo.setTotal(toInt(row.get("total")));
+        vo.setTotalValue(toBigDecimal(row.get("total_value")));
+        vo.setInUse(toInt(row.get("in_use")));
+        vo.setIdle(toInt(row.get("idle")));
+        vo.setRepair(toInt(row.get("repair")));
+        vo.setBorrowed(toInt(row.get("borrowed")));
+        vo.setScrapped(toInt(row.get("scrapped")));
 
-        BigDecimal totalValue = BigDecimal.ZERO;
-        int inUse = 0, idle = 0, repair = 0, borrowed = 0, scrapped = 0;
+        QueryWrapper<AssetInfo> categoryWrapper = new QueryWrapper<>();
+        categoryWrapper.select("category_id", "COUNT(*) AS cnt")
+                .isNotNull("category_id")
+                .groupBy("category_id");
+        List<Map<String, Object>> categoryRows = baseMapper.selectMaps(categoryWrapper);
         Map<Long, Integer> categoryCountMap = new HashMap<>();
-
-        for (AssetInfo a : all) {
-            if (a.getPrice() != null) totalValue = totalValue.add(a.getPrice());
-            if (a.getStatus() == null) continue;
-            switch (a.getStatus()) {
-                case 1 -> inUse++;
-                case 2 -> idle++;
-                case 3 -> repair++;
-                case 4 -> borrowed++;
-                case 5 -> scrapped++;
-                default -> { }
-            }
-            if (a.getCategoryId() != null) {
-                categoryCountMap.merge(a.getCategoryId(), 1, Integer::sum);
+        for (Map<String, Object> categoryRow : categoryRows) {
+            Long categoryId = toLong(categoryRow.get("category_id"));
+            if (categoryId != null) {
+                categoryCountMap.put(categoryId, toInt(categoryRow.get("cnt")));
             }
         }
-        vo.setTotalValue(totalValue);
-        vo.setInUse(inUse);
-        vo.setIdle(idle);
-        vo.setRepair(repair);
-        vo.setBorrowed(borrowed);
-        vo.setScrapped(scrapped);
 
-        // 分类维度统计
         if (!categoryCountMap.isEmpty()) {
             Map<Long, String> categoryNameMap = getCategoryNameMap(categoryCountMap.keySet());
             List<AssetStatOverviewVO.CategoryStatVO> categoryStats = categoryCountMap.entrySet().stream()
@@ -629,7 +720,9 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         response.setContentType("text/csv; charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
         String filename = "资产台账_" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".csv";
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+        String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=\"asset-ledger.csv\"; filename*=UTF-8''" + encodedFilename);
 
         try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8))) {
             // BOM，避免 Excel 打开中文乱码
@@ -663,6 +756,12 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
 
     // ============================== 内部工具方法 ==============================
 
+    /** 校验资产来源类型：1 采购，2 捐赠，3 调拨。 */
+    private void validateSourceType(Integer sourceType) {
+        if (sourceType != null && (sourceType < 1 || sourceType > 3)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "资产来源只能为 1 采购、2 捐赠、3 调拨");
+        }
+    }
     /** 解析 yyyy-MM-dd 日期，空串返回 null，格式错误抛 400。 */
     private LocalDate parseDate(String text) {
         if (text == null || text.isBlank()) return null;
@@ -683,6 +782,36 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
             case 1 -> (current == 2 || current == 3) ? AssetRecordTypeEnum.REPAIR.getValue() : null;
             default -> null;
         };
+    }
+
+    private int toInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.parseInt(value.toString());
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(value.toString());
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        return new BigDecimal(value.toString());
     }
 
     /** 批量查询用户姓名。 */
@@ -820,13 +949,20 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         return wrapper;
     }
 
-    /** CSV 单元格转义：含逗号/引号/换行时用双引号包裹，内部引号转义。 */
+    /** CSV 单元格转义：防止 Excel 公式注入，并按 CSV 规则处理逗号、引号与换行。 */
     private String csvCell(String value) {
         if (value == null) return "";
-        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
+        String text = value;
+        if (!text.isEmpty()) {
+            char first = text.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+                text = "'" + text;
+            }
         }
-        return value;
+        if (text.contains(",") || text.contains("\"") || text.contains("\n") || text.contains("\r")) {
+            return "\"" + text.replace("\"", "\"\"") + "\"";
+        }
+        return text;
     }
 
     /** 来源类型文案。 */

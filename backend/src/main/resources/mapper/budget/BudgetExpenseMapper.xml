@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iecmp.budget.mapper.BudgetExpenseMapper">
+
+    <!-- 3-04 未传周期时取最新公示周期 -->
+    <select id="selectLatestPublicPeriodId" resultType="long">
+        SELECT p.id
+        FROM budget_period p
+        WHERE p.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
+        ORDER BY p.public_time DESC, p.start_date DESC, p.id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 3-04 支出明细公示分页：只能查看已公示且非草稿周期的支出 -->
+    <select id="selectPublicPage" resultType="com.iecmp.budget.vo.UserBudgetExpensePageVO">
+        SELECT
+            e.id AS expenseId,
+            e.period_id AS periodId,
+            p.title AS periodTitle,
+            e.item_id AS itemId,
+            i.name AS itemName,
+            e.title,
+            e.amount,
+            e.expense_date AS expenseDate,
+            u.real_name AS handlerName,
+            e.remark
+        FROM budget_expense e
+        INNER JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE e.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+        ORDER BY e.expense_date DESC, e.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-04 配套总数 -->
+    <select id="countPublicPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_expense e
+        INNER JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        WHERE e.deleted = 0
+          AND p.is_public = 1
+          AND p.status &lt;&gt; 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <!-- 3-23 支出分页（后台） -->
+    <select id="selectAdminPage" resultType="com.iecmp.budget.vo.AdminBudgetExpensePageVO">
+        SELECT
+            e.id AS expenseId,
+            e.period_id AS periodId,
+            p.title AS periodTitle,
+            e.item_id AS itemId,
+            i.name AS itemName,
+            e.title,
+            e.amount,
+            e.expense_date AS expenseDate,
+            e.voucher_file_id AS voucherFileId,
+            e.handler_id AS handlerId,
+            u.real_name AS handlerName,
+            e.apply_id AS applyId,
+            e.remark,
+            e.create_time AS createTime
+        FROM budget_expense e
+        LEFT JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE 1 = 1
+          AND e.deleted = 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="handlerId != null">
+            AND e.handler_id = #{handlerId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+        ORDER BY e.expense_date DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-23 配套总数 -->
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_expense e
+        LEFT JOIN budget_period p ON e.period_id = p.id AND p.deleted = 0
+        LEFT JOIN budget_item i ON e.item_id = i.id AND i.deleted = 0
+        LEFT JOIN sys_user u ON e.handler_id = u.id AND u.deleted = 0
+        WHERE 1 = 1
+          AND e.deleted = 0
+        <if test="periodId != null">
+            AND e.period_id = #{periodId}
+        </if>
+        <if test="itemId != null">
+            AND e.item_id = #{itemId}
+        </if>
+        <if test="handlerId != null">
+            AND e.handler_id = #{handlerId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND e.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="beginDate != null">
+            AND e.expense_date &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND e.expense_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <!-- 3-25 月度支出趋势 -->
+    <select id="selectMonthTrend" resultType="com.iecmp.budget.vo.BudgetStatOverviewVO$MonthTrendVO">
+        SELECT
+            DATE_FORMAT(e.expense_date, '%Y-%m') AS month,
+            CAST(COALESCE(SUM(e.amount), 0) AS CHAR) AS amount
+        FROM budget_expense e
+        WHERE e.period_id = #{periodId}
+          AND e.deleted = 0
+        GROUP BY DATE_FORMAT(e.expense_date, '%Y-%m')
+        ORDER BY month
+    </select>
+
+</mapper>

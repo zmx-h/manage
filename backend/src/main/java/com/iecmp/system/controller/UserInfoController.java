@@ -4,7 +4,7 @@ import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.result.Result;
 import com.iecmp.system.dto.InfoUpdateDTO;
 import com.iecmp.system.dto.PasswordUpdateDTO;
-import com.iecmp.system.service.SysUserService;
+import com.iecmp.system.service.AuthService;
 import com.iecmp.system.vo.InfoVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,10 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>覆盖接口：1-05、1-06、1-07，共 3 个。
  *
- * <p><b>骨架说明</b>：所有方法体都是占位实现，统一返回
- * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
- * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
- *
  * @author IECMP 后端组
  */
 @Tag(name = "用户端-个人信息")
@@ -31,8 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class UserInfoController {
 
-    /** SysUser 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
-    private final SysUserService sysUserService;
+    private final AuthService authService;
 
     /**
      * 1-05 当前用户信息。
@@ -44,8 +39,7 @@ public class UserInfoController {
     @Operation(summary = "1-05 当前用户信息", description = "获取当前登录用户的基本信息、角色与权限码，用于前端渲染菜单与按钮")
     @GetMapping("/user/info")
     public Result<InfoVO> getInfo() {
-        // TODO 待实现（接口 1-05）：见《IECMP-接口开发文档-v1.6.md》接口 1-05
-        return Result.todo("1-05");
+        return Result.success(authService.getCurrentUserInfo());
     }
 
     /**

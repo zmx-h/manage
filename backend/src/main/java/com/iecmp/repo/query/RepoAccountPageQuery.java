@@ -10,7 +10,7 @@ import lombok.Data;
  *
  * <p>对应接口：2-13（详见《IECMP-接口开发文档-v1.6.md》）。
  *
- * @author IECMP 后端组
+ * @author WanZiyu
  */
 @Data
 public class RepoAccountPageQuery extends PageQuery implements Serializable {

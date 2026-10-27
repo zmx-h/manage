@@ -39,6 +39,12 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
 
+repo:
+  crypto:
+    # 托管平台访问令牌的 AES 密钥（接口文档 8.2.2）。必填，无默认值：
+    # 缺失或留空会让令牌加解密抛 IllegalStateException，宁可启动即失败也不要静默用一个弱密钥
+    aes-key: ${IECMP_REPO_AES_KEY}
+
 oss:
   endpoint: ${OSS_ENDPOINT}
   bucket: ${OSS_BUCKET}

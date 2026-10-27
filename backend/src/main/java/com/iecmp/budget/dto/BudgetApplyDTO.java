@@ -1,8 +1,12 @@
 package com.iecmp.budget.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import lombok.Data;
@@ -31,20 +35,25 @@ public class BudgetApplyDTO implements Serializable {
 
     /** 申请标题，最长 100 字 */
     @Schema(description = "申请标题，最长 100 字")
-    @NotBlank(message = "申请标题，最长 100 字不能为空")
+    @NotBlank(message = "申请标题不能为空")
+    @Size(max = 100, message = "申请标题长度不能超过 100 个字符")
     private String title;
 
     /** 申请金额，最多两位小数 */
     @Schema(description = "申请金额，最多两位小数")
-    @NotNull(message = "申请金额，最多两位小数不能为空")
+    @NotNull(message = "申请金额不能为空")
+    @DecimalMin(value = "0.01", message = "申请金额必须大于 0")
+    @Digits(integer = 10, fraction = 2, message = "申请金额最多 10 位整数、2 位小数")
     private BigDecimal amount;
 
     /** 申请事由，最长 500 字 */
     @Schema(description = "申请事由，最长 500 字")
+    @Size(max = 500, message = "申请事由长度不能超过 500 个字符")
     private String reason;
 
     /** 期望使用日期，格式 yyyy-MM-dd */
     @Schema(description = "期望使用日期，格式 yyyy-MM-dd")
+    @Pattern(regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$", message = "期望使用日期格式应为 yyyy-MM-dd")
     private String expectDate;
 
     /** 附件文件 ID，可先调用接口 8-01 上传后填入 */

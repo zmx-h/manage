@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  模块二 · 同步日志 SQL。
+
+  接口 2-16 要展示平台、账号名与成员姓名（分别来自 repo_account 与 sys_user），属多表查询。
+  筛选条件严格按接口文档 8.5.4 的五个参数来，不额外扩字段。
+-->
+<mapper namespace="com.iecmp.repo.mapper.RepoSyncLogMapper">
+
+    <select id="selectLogPage" resultType="com.iecmp.repo.vo.RepoSyncLogPageVO">
+        SELECT l.id AS log_id,
+        l.user_id AS user_id,
+        u.real_name AS real_name,
+        a.platform AS platform,
+        a.account_name AS account_name,
+        l.sync_type AS sync_type,
+        l.sync_result AS sync_result,
+        l.commit_count AS commit_count,
+        l.cost_ms AS cost_ms,
+        l.error_msg AS error_msg,
+        DATE_FORMAT(l.create_time, '%Y-%m-%d %H:%i:%s') AS create_time
+        FROM repo_sync_log l
+        LEFT JOIN repo_account a ON a.id = l.account_id AND a.deleted = 0
+        LEFT JOIN sys_user u ON u.id = l.user_id AND u.deleted = 0
+        WHERE l.deleted = 0
+        <if test="q.userId != null">AND l.user_id = #{q.userId}</if>
+        <if test="q.syncType != null">AND l.sync_type = #{q.syncType}</if>
+        <if test="q.syncResult != null">AND l.sync_result = #{q.syncResult}</if>
+        <if test="q.beginTime != null and q.beginTime != ''">AND l.create_time &gt;= #{q.beginTime}</if>
+        <if test="q.endTime != null and q.endTime != ''">AND l.create_time &lt;= #{q.endTime}</if>
+        <choose>
+            <when test="orderByClause != null">ORDER BY ${orderByClause}</when>
+            <otherwise>ORDER BY l.create_time DESC, l.id DESC</otherwise>
+        </choose>
+    </select>
+
+    <!--
+      接口 2-06：每个账户最近一条同步日志。
+      用 idx_account_create (account_id, create_time) 走「等值 + 倒序取一」，不把全部日志拉回内存分组。
+      create_time 相同时用 id 兜底，保证结果稳定。
+    -->
+    <select id="selectLatestByAccountIds" resultType="com.iecmp.repo.entity.RepoSyncLog">
+        SELECT l.id AS id,
+        l.account_id AS account_id,
+        l.user_id AS user_id,
+        l.sync_type AS sync_type,
+        l.sync_result AS sync_result,
+        l.commit_count AS commit_count,
+        l.cost_ms AS cost_ms,
+        l.error_msg AS error_msg,
+        l.create_time AS create_time
+        FROM repo_sync_log l
+        WHERE l.deleted = 0
+        AND l.account_id IN
+        <foreach collection="accountIds" item="accountId" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+        AND l.id = (SELECT l2.id FROM repo_sync_log l2
+        WHERE l2.deleted = 0 AND l2.account_id = l.account_id
+        ORDER BY l2.create_time DESC, l2.id DESC LIMIT 1)
+    </select>
+
+</mapper>

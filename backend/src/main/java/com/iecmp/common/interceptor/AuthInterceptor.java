@@ -18,19 +18,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.List;
 
-/**
- * 鉴权拦截器（架构文档 4.1 / 4.5 节）。
- *
- * <p>处理顺序：
- * <ol>
- *   <li>命中 {@code iecmp.auth.ignore-urls} 的路径直接放行（公开接口）；</li>
- *   <li>读取 {@code Authorization: Bearer {token}}，解析令牌并写入 {@link UserContext}；</li>
- *   <li>命中 {@code iecmp.auth.optional-urls} 的路径解析失败也放行（令牌可选接口）；</li>
- *   <li>校验方法上的 {@link RequiresPerm} 权限码。</li>
- * </ol>
- *
- * <p>未登录统一返回 401，权限不足返回 403；Redis 故障时鉴权直接失败（不放行）。
- */
 @Component
 @RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
@@ -49,7 +36,6 @@ public class AuthInterceptor implements HandlerInterceptor {
             path = path.substring(contextPath.length());
         }
 
-        // 1. 公开接口
         if (matches(iecmpProperties.getAuth().getIgnoreUrls(), path)) {
             return true;
         }
@@ -57,7 +43,6 @@ public class AuthInterceptor implements HandlerInterceptor {
         String token = resolveToken(request);
         boolean optional = matches(iecmpProperties.getAuth().getOptionalUrls(), path);
 
-        // 2. 解析令牌
         if (token == null || token.isEmpty()) {
             if (optional) {
                 return true;
@@ -67,12 +52,10 @@ public class AuthInterceptor implements HandlerInterceptor {
         LoginUser loginUser = tokenService.resolveAccessToken(token);
         UserContext.set(loginUser);
 
-        // 3. 令牌可选接口到此为止
         if (optional) {
             return true;
         }
 
-        // 4. 权限码校验
         if (handler instanceof HandlerMethod handlerMethod) {
             RequiresPerm requiresPerm = handlerMethod.getMethodAnnotation(RequiresPerm.class);
             if (requiresPerm != null && !hasPermission(loginUser, requiresPerm.value())) {
@@ -120,7 +103,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
         for (String pattern : patterns) {
-            if (PATH_MATCHER.match(pattern, path)) {
+            if (pattern != null && !pattern.isEmpty() && PATH_MATCHER.match(pattern, path)) {
                 return true;
             }
         }

@@ -5,12 +5,14 @@ import com.iecmp.asset.dto.AssetInventoryItemUpdateDTO;
 import com.iecmp.asset.entity.AssetInventory;
 import com.iecmp.asset.entity.AssetInventoryItem;
 import com.iecmp.asset.enums.AssetErrorCode;
+import com.iecmp.asset.enums.InventoryCheckStatusEnum;
 import com.iecmp.asset.enums.InventoryStatusEnum;
 import com.iecmp.asset.mapper.AssetInventoryItemMapper;
 import com.iecmp.asset.mapper.AssetInventoryMapper;
 import com.iecmp.asset.service.AssetInventoryItemService;
 import com.iecmp.common.context.UserContext;
 import com.iecmp.common.exception.BusinessException;
+import com.iecmp.common.result.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,8 +54,13 @@ public class AssetInventoryItemServiceImpl extends ServiceImpl<AssetInventoryIte
             throw new BusinessException(AssetErrorCode.E40013.getCode(), AssetErrorCode.E40013.getMsg());
         }
 
-        // 3. 更新盘点结果
-        item.setCheckStatus(dto.getCheckStatus());
+        // 3. 校验盘点结果并更新
+        Integer checkStatus = dto.getCheckStatus();
+        if (InventoryCheckStatusEnum.of(checkStatus) == null
+                || InventoryCheckStatusEnum.UNCHECKED.getValue().equals(checkStatus)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "盘点结果只能为 1 正常、2 盘亏、3 位置不符");
+        }
+        item.setCheckStatus(checkStatus);
         item.setCheckUserId(UserContext.getUserIdOrDefault());
         item.setCheckTime(LocalDateTime.now());
         item.setRemark(dto.getRemark());

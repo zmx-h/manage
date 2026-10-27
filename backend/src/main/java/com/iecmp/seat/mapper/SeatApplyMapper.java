@@ -1,8 +1,13 @@
 package com.iecmp.seat.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iecmp.seat.entity.SeatApply;
+import com.iecmp.seat.query.SeatApplyMyPageQuery;
+import com.iecmp.seat.vo.SeatApplyMyPageVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 工位申请表（{@code seat_apply}）数据访问接口。
@@ -23,4 +28,6 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SeatApplyMapper extends BaseMapper<SeatApply> {
+
+    IPage<SeatApplyMyPageVO> selectMyPage(Page<?> page, @Param("userId") Long userId, @Param("query") SeatApplyMyPageQuery query);
 }

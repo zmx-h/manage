@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iecmp.asset.dto.AssetInventoryAddDTO;
 import com.iecmp.asset.dto.AssetInventoryFinishDTO;
+import com.iecmp.asset.dto.AssetInventoryStatDTO;
 import com.iecmp.asset.entity.AssetCategory;
 import com.iecmp.asset.entity.AssetInfo;
 import com.iecmp.asset.entity.AssetInventory;
@@ -75,10 +76,12 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AssetInventoryCreateVO add(AssetInventoryAddDTO dto) {
-        // 1. 不允许并存多个进行中的盘点任务
-        Long ongoing = this.count(Wrappers.lambdaQuery(AssetInventory.class)
-                .eq(AssetInventory::getStatus, InventoryStatusEnum.IN_PROGRESS.getValue()));
-        if (ongoing > 0) {
+        // 1. 不允许并存多个进行中的盘点任务；锁住 status=0 的索引区间，避免并发同时创建
+        List<AssetInventory> ongoing = baseMapper.selectList(Wrappers.<AssetInventory>lambdaQuery()
+                .select(AssetInventory::getId)
+                .eq(AssetInventory::getStatus, InventoryStatusEnum.IN_PROGRESS.getValue())
+                .last("FOR UPDATE"));
+        if (!ongoing.isEmpty()) {
             throw new BusinessException(AssetErrorCode.E40013.getCode(), AssetErrorCode.E40013.getMsg());
         }
 
@@ -101,37 +104,39 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
         if (excludeScrapped == 1) {
             assetWrapper.ne(AssetInfo::getStatus, AssetStatusEnum.SCRAPPED.getValue());
         }
-        List<AssetInfo> assets = assetInfoMapper.selectList(assetWrapper);
+        List<Object> assetIdRows = assetInfoMapper.selectObjs(assetWrapper.select(AssetInfo::getId));
 
         // 4. 创建盘点任务
         AssetInventory inventory = new AssetInventory();
         inventory.setTitle(dto.getTitle());
         inventory.setBeginTime(LocalDateTime.now());
         inventory.setStatus(InventoryStatusEnum.IN_PROGRESS.getValue());
-        inventory.setTotalCount(assets.size());
+        inventory.setTotalCount(assetIdRows.size());
         inventory.setNormalCount(0);
         inventory.setAbnormalCount(0);
         this.save(inventory);
 
-        // 5. 批量生成明细行
-        if (!assets.isEmpty()) {
-            List<AssetInventoryItem> items = new ArrayList<>(assets.size());
-            for (AssetInfo a : assets) {
+        // 5. 分批生成明细行，避免全量对象加载与逐条 INSERT
+        if (!assetIdRows.isEmpty()) {
+            List<AssetInventoryItem> items = new ArrayList<>(assetIdRows.size());
+            for (Object rawId : assetIdRows) {
+                if (!(rawId instanceof Number number)) {
+                    continue;
+                }
                 AssetInventoryItem item = new AssetInventoryItem();
                 item.setInventoryId(inventory.getId());
-                item.setAssetId(a.getId());
+                item.setAssetId(number.longValue());
                 item.setCheckStatus(InventoryCheckStatusEnum.UNCHECKED.getValue());
                 items.add(item);
             }
-            // 批量生成明细行（逐条插入；大批量可后续优化为 saveBatch）
-            for (AssetInventoryItem item : items) {
-                assetInventoryItemMapper.insert(item);
+            for (int i = 0; i < items.size(); i += 500) {
+                assetInventoryItemMapper.insertBatch(items.subList(i, Math.min(i + 500, items.size())));
             }
         }
 
         AssetInventoryCreateVO vo = new AssetInventoryCreateVO();
         vo.setInventoryId(inventory.getId());
-        vo.setTotalCount(assets.size());
+        vo.setTotalCount(assetIdRows.size());
         return vo;
     }
 
@@ -155,17 +160,21 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
         Page<AssetInventory> page = new Page<>(query.getPageNum(), query.getPageSize());
         Page<AssetInventory> result = this.page(page, wrapper);
 
-        // 批量统计各任务的明细
+        // 按库存任务在数据库中聚合，避免把每页所有明细加载到 JVM
         Set<Long> inventoryIds = result.getRecords().stream()
                 .map(AssetInventory::getId).collect(Collectors.toSet());
-        Map<Long, List<AssetInventoryItem>> itemMap;
+        Map<Long, int[]> statMap = new HashMap<>();
         if (!inventoryIds.isEmpty()) {
-            List<AssetInventoryItem> items = assetInventoryItemMapper.selectList(
-                    Wrappers.lambdaQuery(AssetInventoryItem.class)
-                            .in(AssetInventoryItem::getInventoryId, inventoryIds));
-            itemMap = items.stream().collect(Collectors.groupingBy(AssetInventoryItem::getInventoryId));
-        } else {
-            itemMap = Collections.emptyMap();
+            for (AssetInventoryStatDTO stat : assetInventoryItemMapper.selectStatByInventoryIds(inventoryIds)) {
+                if (stat.getInventoryId() != null) {
+                    statMap.put(stat.getInventoryId(), new int[]{
+                            valueOrZero(stat.getTotalCount()),
+                            valueOrZero(stat.getCheckedCount()),
+                            valueOrZero(stat.getNormalCount()),
+                            valueOrZero(stat.getAbnormalCount())
+                    });
+                }
+            }
         }
 
         return PageResult.of(result, inv -> {
@@ -176,27 +185,19 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
             vo.setEndTime(fmt(inv.getEndTime()));
             vo.setStatus(inv.getStatus());
 
-            List<AssetInventoryItem> items = itemMap.getOrDefault(inv.getId(), Collections.emptyList());
-            int total = items.size();
-            int normal = 0, abnormal = 0, checked = 0;
-            for (AssetInventoryItem it : items) {
-                Integer cs = it.getCheckStatus();
-                if (cs == null || cs == 0) continue;
-                checked++;
-                if (cs == 1) normal++;
-                else if (cs == 2 || cs == 3) abnormal++;
-            }
+            int[] stat = statMap.getOrDefault(inv.getId(), new int[4]);
+            int total = stat[0];
+            int checked = stat[1];
             vo.setTotalCount(total);
             vo.setCheckedCount(checked);
-            vo.setNormalCount(normal);
-            vo.setAbnormalCount(abnormal);
+            vo.setNormalCount(stat[2]);
+            vo.setAbnormalCount(stat[3]);
             vo.setProgressRate(total == 0 ? BigDecimal.ZERO
                     : BigDecimal.valueOf(checked).multiply(BigDecimal.valueOf(100))
                             .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP));
             return vo;
         });
     }
-
     // ============================== 4-26 结束盘点 ==============================
 
     @Override
@@ -207,6 +208,17 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
             throw new BusinessException(AssetErrorCode.E40012.getCode(), AssetErrorCode.E40012.getMsg());
         }
         if (InventoryStatusEnum.COMPLETED.getValue().equals(inventory.getStatus())) {
+            throw new BusinessException(AssetErrorCode.E40013.getCode(), AssetErrorCode.E40013.getMsg());
+        }
+
+        // 先抢占「进行中 -> 已完成」，并发调用时只有一个请求能继续执行
+        LocalDateTime finishTime = LocalDateTime.now();
+        boolean claimed = this.update(Wrappers.<AssetInventory>lambdaUpdate()
+                .eq(AssetInventory::getId, id)
+                .eq(AssetInventory::getStatus, InventoryStatusEnum.IN_PROGRESS.getValue())
+                .set(AssetInventory::getStatus, InventoryStatusEnum.COMPLETED.getValue())
+                .set(AssetInventory::getEndTime, finishTime));
+        if (!claimed) {
             throw new BusinessException(AssetErrorCode.E40013.getCode(), AssetErrorCode.E40013.getMsg());
         }
 
@@ -225,13 +237,12 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
             else if (cs == 3) { mismatch++; abnormalItems.add(it); }
         }
 
-        // 2. 回填盘点任务
-        inventory.setTotalCount(total);
-        inventory.setNormalCount(normal);
-        inventory.setAbnormalCount(loss + mismatch);
-        inventory.setStatus(InventoryStatusEnum.COMPLETED.getValue());
-        inventory.setEndTime(LocalDateTime.now());
-        this.updateById(inventory);
+        // 2. 回填盘点统计结果（状态与结束时间已在上面的条件更新中写入）
+        this.update(Wrappers.<AssetInventory>lambdaUpdate()
+                .eq(AssetInventory::getId, id)
+                .set(AssetInventory::getTotalCount, total)
+                .set(AssetInventory::getNormalCount, normal)
+                .set(AssetInventory::getAbnormalCount, loss + mismatch));
 
         // 3. 盘亏资产同步报废（可选）
         boolean updateStatus = dto.getUpdateAssetStatus() != null && dto.getUpdateAssetStatus() == 1;
@@ -240,11 +251,11 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
                     .filter(it -> InventoryCheckStatusEnum.LOSS.getValue().equals(it.getCheckStatus()))
                     .map(AssetInventoryItem::getAssetId)
                     .toList();
-            for (Long assetId : lossAssetIds) {
-                AssetInfo update = new AssetInfo();
-                update.setId(assetId);
-                update.setStatus(AssetStatusEnum.SCRAPPED.getValue());
-                assetInfoMapper.updateById(update);
+            if (!lossAssetIds.isEmpty()) {
+                assetInfoMapper.update(null, Wrappers.<AssetInfo>lambdaUpdate()
+                        .in(AssetInfo::getId, lossAssetIds)
+                        .ne(AssetInfo::getStatus, AssetStatusEnum.SCRAPPED.getValue())
+                        .set(AssetInfo::getStatus, AssetStatusEnum.SCRAPPED.getValue()));
             }
         }
 
@@ -339,5 +350,9 @@ public class AssetInventoryServiceImpl extends ServiceImpl<AssetInventoryMapper,
         } catch (DateTimeParseException e) {
             throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "日期格式错误，应为 yyyy-MM-dd");
         }
+    }
+
+    private int valueOrZero(Integer value) {
+        return value == null ? 0 : value;
     }
 }
