@@ -12,4 +12,6 @@ import com.iecmp.system.entity.SysUser;
  * @author IECMP 后端组
  */
 public interface SysUserService extends IService<SysUser> {
+
+    SysUser getByUsername(String username);
 }

@@ -49,12 +49,12 @@ public class UserAuthController {
         }
 
         // 3. 生成 Token
-        String accesssToken = jwtUtil.createToken(user.getId(), user.getUsername());
+        String accessToken = jwtUtil.createToken(user.getId(), user.getUsername());
 
         String refreshToken = jwtUtil.createRefreshToken(user.getId(), user.getUsername());
         // 4. 组装返回给前端的 VO（如果你项目里的 UserLoginVO 字段名不一样，请根据实际字段修改 setter）
         UserLoginVO vo = new UserLoginVO();
-        vo.setAccessToken(accesssToken);
+        vo.setAccessToken(accessToken);
         vo.setRefreshToken(refreshToken);
         vo.setTokenType("Bearer");
         vo.setExpiresIn(7200);

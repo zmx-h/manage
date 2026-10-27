@@ -9,7 +9,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-import io.jsonwebtoken.Claims;
 
 
 @Component
@@ -29,12 +28,9 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 【核心修改：暴力清除所有空格和 Bearer 前缀】
-        // 1. 先把 "Bearer" 删掉（忽略大小写）
-        token = token.replace("Bearer", "").replace("bearer", "");
-
-        // 2. 把字符串里所有的空格、换行、回车全部删掉！
-        token = token.replaceAll("\\s+", "");
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7).trim();
+        }
 
         System.out.println(">>> 拦截器收到的纯 Token: [" + token + "]");
 
@@ -56,7 +52,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             LoginUser loginUser = new LoginUser();
             loginUser.setUserId(userId);
             loginUser.setUsername(username);
-            loginUser.setSuperAdmin(true);
+            loginUser.setSuperAdmin(false);
             loginUser.setRoles(new java.util.HashSet<>());
             loginUser.setPermissions(new java.util.HashSet<>());
 
@@ -68,5 +64,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             response.setStatus(401);
             return false;
         }
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        UserContext.clear();
     }
 }
