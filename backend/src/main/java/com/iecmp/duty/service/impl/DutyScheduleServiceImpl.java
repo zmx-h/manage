@@ -7,6 +7,7 @@ import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyPlanUpdateDTO;
 import com.iecmp.duty.dto.DutyScheduleAddDTO;
+import com.iecmp.duty.dto.DutyScheduleStatusDTO;
 import com.iecmp.duty.dto.DutyScheduleUpdateDTO;
 import com.iecmp.duty.entity.DutyPlan;
 import com.iecmp.duty.entity.DutySchedule;
@@ -27,7 +28,7 @@ import java.time.LocalDate;
  * <p>骨架阶段为空实现，只提供通用 CRUD；业务方法在 {@link DutyScheduleService} 中声明后在此实现。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-27
  */
 @Service
 @RequiredArgsConstructor
@@ -136,6 +137,20 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
             // ... 其他的如果你看着不报错也可以 set
             return vo;
         });
+    }
+
+    @Override
+    public void changeStatus(Long id, DutyScheduleStatusDTO dto) {
+        DutySchedule schedule = this.getById(id);
+        if (schedule == null) {
+            throw new BusinessException(70006, "值日安排不存在");
+        }
+        schedule.setStatus(dto.getStatus());
+        // 如果是改为已完成(1)，记录确认时间
+        if (dto.getStatus() != null && dto.getStatus() == 1) {
+            schedule.setConfirmTime(java.time.LocalDateTime.now());
+        }
+        this.updateById(schedule);
     }
 
 }

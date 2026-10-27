@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.duty.dto.DutyPlanUpdateDTO;
 import com.iecmp.duty.dto.DutyScheduleAddDTO;
+import com.iecmp.duty.dto.DutyScheduleStatusDTO;
 import com.iecmp.duty.dto.DutyScheduleUpdateDTO;
 import com.iecmp.duty.entity.DutySchedule;
 import com.iecmp.duty.query.AdminDutySchedulePageQuery;
@@ -17,11 +18,12 @@ import com.iecmp.duty.vo.DutyScheduleCreateVO;
  * 实现具体接口时，把该表的专有业务方法声明在这里，并在 Impl 中实现。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-27
  */
 public interface DutyScheduleService extends IService<DutySchedule> {
     public DutyScheduleCreateVO add(DutyScheduleAddDTO dto);
     public void update(DutyScheduleUpdateDTO dto);
     public void delete(Long id);
     public PageResult<AdminDutySchedulePageVO> page(AdminDutySchedulePageQuery query);
+    void changeStatus(Long id, DutyScheduleStatusDTO dto);
 }

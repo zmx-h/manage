@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
  *
  * @author liuyujie
- * @date 2026-10-22
+ * @date 2026-10-27
  */
 @Tag(name = "管理端-值日安排")
 @RestController
@@ -126,6 +126,7 @@ public class AdminDutyScheduleController {
     @PutMapping("/admin/duty/schedule/{id}/status")
     public Result<Void> putDutyScheduleStatus(@PathVariable("id") Long id, @RequestBody @Valid DutyScheduleStatusDTO dto) {
         // TODO 待实现（接口 7-18）：见《IECMP-接口开发文档-v1.6.md》接口 7-18
-        return Result.todo("7-18");
+        dutyScheduleService.changeStatus(id,dto);
+        return Result.success();
     }
 }
