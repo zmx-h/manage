@@ -20,8 +20,11 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
-    private Long expiration;
+    @Value("${jwt.access-token-expire}")
+    private Long accessTokenExpire;
+
+    @Value("${jwt.refresh-token-expire}")
+    private Long refreshTokenExpire;
 
     private SecretKey getSecretKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
@@ -35,10 +38,12 @@ public class JwtUtil {
                 .claim("username", username)
                 .claim("type", TYPE_ACCESS)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .expiration(new Date(System.currentTimeMillis() + accessTokenExpire * 1000))
                 .signWith(getSecretKey())
                 .compact();
     }
+
+
 
     public Claims parseToken(String token) {
         return Jwts.parser()
@@ -60,7 +65,7 @@ public class JwtUtil {
                 .claim("username", username)
                 .claim("type", TYPE_REFRESH)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 604800000L)) // 7天
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpire * 1000))
                 .signWith(getSecretKey())
                 .compact();
     }

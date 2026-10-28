@@ -17,11 +17,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         implements SysUserService {
+
     @Override
     public SysUser getByUsername(String username) {
-        // 使用 MyBatis-Plus 的条件构造器去数据库查
-        LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysUser::getUsername, username);
-        return this.getOne(wrapper);
+        return this.getOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, username));
     }
 }

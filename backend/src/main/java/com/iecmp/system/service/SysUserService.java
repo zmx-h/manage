@@ -12,5 +12,6 @@ import com.iecmp.system.entity.SysUser;
  * @author IECMP 后端组
  */
 public interface SysUserService extends IService<SysUser> {
-    SysUser getByUsername(String username);//登录的时候先去数据库查人  这个根据用户名去数据库查有没有这个用户
+
+    SysUser getByUsername(String username);
 }

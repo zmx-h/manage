@@ -79,8 +79,7 @@ springdoc:
 # ============================================================================
 jwt:
   secret: CHANGE_ME_iecmp_jwt_secret_key_at_least_32_bytes_long
-  expiration: 7200000
-  access-token-expire: 7200000       # accessToken 有效期（秒），2 小时
+  access-token-expire: 7200       # accessToken 有效期（秒），2 小时
   refresh-token-expire: 604800    # refreshToken 有效期（秒），7 天
   refresh-renew-threshold: 86400  # refreshToken 剩余不足 1 天时滑动续期（秒）
   header: Authorization
