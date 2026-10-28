@@ -1,28 +1,47 @@
 package com.iecmp.common.config;
 
 import com.iecmp.common.interceptor.AuthInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.iecmp.common.properties.IecmpProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web 层配置：注册鉴权拦截器与跨域规则。
+ *
+ * <p>跨域来源取自 {@code iecmp.cors.allowed-origins}，dev 环境放开本地前端端口，
+ * 生产环境由环境变量注入正式域名。
+ */
 @Configuration
+@RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Autowired
-    private AuthInterceptor authInterceptor;
+    private final AuthInterceptor authInterceptor;
+    private final IecmpProperties iecmpProperties;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 注册我们的保安
         registry.addInterceptor(authInterceptor)
-                // "/**" 表示拦截所有的请求
                 .addPathPatterns("/**")
-                // 但是，登录接口不能拦（不然别人连登录都登不了）
-                // 你的登录接口是 /user/login （注意：这里的路径不含外层的 /api）
                 .excludePathPatterns(
                         "/user/login",
-                        "/common/captcha" // 顺便把图形验证码也放行
+                        "/user/logout",
+                        "/user/token/refresh",
+                        "/common/captcha",
+                        "/error"
                 );
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins(iecmpProperties.getCors().getAllowedOrigins().toArray(new String[0]))
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Content-Disposition")
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 }
