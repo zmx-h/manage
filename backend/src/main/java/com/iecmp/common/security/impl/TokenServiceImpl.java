@@ -92,7 +92,10 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public LoginUser loadLoginUser(Long userId) {
-
+        // TODO 1-05 / 1-04：查询 sys_user + sys_role + sys_role_permission 装配 LoginUser；
+        //  用户被禁用（status = 0）时直接抛出 10002 账号被禁用；
+        //  角色编码含 SUPER_ADMIN（或 sys_role.role_code = 'SUPER_ADMIN'）时 superAdmin = true。
+        //  为避免 common -> system 的包依赖，建议在 system 模块实现 LoginUserLoader 接口后由本类注入。
         throw new BusinessException(ResultCode.SYSTEM_ERROR);
     }
 
