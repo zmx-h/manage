@@ -1,7 +1,7 @@
 package com.iecmp.common.config;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
-import com.iecmp.common.context.UserContext;
+import com.iecmp.common.util.LoginUserUtil;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.stereotype.Component;
 
@@ -18,10 +18,18 @@ public class MetaObjectHandlerConfig implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        LocalDateTime now = LocalDateTime.now();
-        Long userId = UserContext.getUserId();
-        this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, now);
-        this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, now);
+        // 插入时，自动填充创建时间和更新时间
+        this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
+        this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+
+        // 插入时，自动填充创建人和更新人
+        Long userId = null;
+        try {
+            userId = LoginUserUtil.getUserId();
+        } catch (Exception e) {
+            // 忽略未登录时的异常（例如定时任务、注册接口）
+        }
+
         if (userId != null) {
             this.strictInsertFill(metaObject, "createBy", Long.class, userId);
             this.strictInsertFill(metaObject, "updateBy", Long.class, userId);
@@ -30,8 +38,17 @@ public class MetaObjectHandlerConfig implements MetaObjectHandler {
 
     @Override
     public void updateFill(MetaObject metaObject) {
+        // 更新时，自动填充更新时间
         this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
-        Long userId = UserContext.getUserId();
+
+        // 更新时，自动填充更新人
+        Long userId = null;
+        try {
+            userId = LoginUserUtil.getUserId();
+        } catch (Exception e) {
+            // 忽略未登录时的异常
+        }
+
         if (userId != null) {
             this.strictUpdateFill(metaObject, "updateBy", Long.class, userId);
         }

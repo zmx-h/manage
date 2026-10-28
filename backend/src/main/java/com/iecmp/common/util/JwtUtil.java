@@ -1,111 +1,93 @@
 package com.iecmp.common.util;
 
-import com.iecmp.common.properties.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.UUID;
 
-/**
- * JWT 工具：双令牌的签发与解析（架构文档 4.1 节）。
- *
- * <p>令牌载荷约定：{@code sub} = 用户 ID，{@code username} 为登录账号，
- * {@code type} 区分 {@code access} / {@code refresh}，{@code jti} 为令牌唯一标识。
- */
 @Component
-@RequiredArgsConstructor
 public class JwtUtil {
 
-    /** 令牌类型：访问令牌。 */
     public static final String TYPE_ACCESS = "access";
-
-    /** 令牌类型：刷新令牌。 */
     public static final String TYPE_REFRESH = "refresh";
 
-    private static final String CLAIM_USERNAME = "username";
-    private static final String CLAIM_TYPE = "type";
+    @Value("${jwt.secret}")
+    private String secret;
 
-    private final JwtProperties jwtProperties;
+    @Value("${jwt.access-token-expire}")
+    private Long accessTokenExpire;
 
-    /** 签发 accessToken。 */
-    public String createAccessToken(Long userId, String username) {
-        return createToken(userId, username, TYPE_ACCESS, jwtProperties.getAccessTokenExpire());
+    @Value("${jwt.refresh-token-expire}")
+    private Long refreshTokenExpire;
+
+    private SecretKey getSecretKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** 签发 refreshToken。 */
-    public String createRefreshToken(Long userId, String username) {
-        return createToken(userId, username, TYPE_REFRESH, jwtProperties.getRefreshTokenExpire());
-    }
+    // ================= 基础方法（你刚学的） =================
 
-    private String createToken(Long userId, String username, String type, Long expireSeconds) {
-        long now = System.currentTimeMillis();
+    public String createToken(Long userId, String username) {
         return Jwts.builder()
-                .id(UUID.randomUUID().toString())
-                .subject(String.valueOf(userId))
-                .claim(CLAIM_USERNAME, username)
-                .claim(CLAIM_TYPE, type)
-                .issuedAt(new Date(now))
-                .expiration(new Date(now + expireSeconds * 1000L))
-                .signWith(secretKey())
+                .claim("userId", userId)
+                .claim("username", username)
+                .claim("type", TYPE_ACCESS)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + accessTokenExpire * 1000))
+                .signWith(getSecretKey())
                 .compact();
     }
 
-    /**
-     * 解析令牌，签名错误或已过期都会抛出 {@link JwtException}。
-     */
-    public Claims parse(String token) {
+
+
+    public Claims parseToken(String token) {
         return Jwts.parser()
-                .verifyWith(secretKey())
+                .verifyWith(getSecretKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
-    /**
-     * 宽容解析：令牌非法时返回 null，用于「令牌可选」的公开接口。
-     */
-    public Claims parseQuietly(String token) {
-        try {
-            return parse(token);
-        } catch (JwtException | IllegalArgumentException e) {
-            return null;
-        }
+    // ================= 兼容项目原有代码的方法 =================
+
+    public String createAccessToken(Long userId, String username) {
+        return createToken(userId, username);
     }
 
-    /** 取用户 ID。 */
-    public Long getUserId(Claims claims) {
-        return Long.valueOf(claims.getSubject());
+    public String createRefreshToken(Long userId, String username) {
+        return Jwts.builder()
+                .claim("userId", userId)
+                .claim("username", username)
+                .claim("type", TYPE_REFRESH)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpire * 1000))
+                .signWith(getSecretKey())
+                .compact();
     }
 
-    /** 取登录账号。 */
-    public String getUsername(Claims claims) {
-        return claims.get(CLAIM_USERNAME, String.class);
+    public Claims parse(String token) {
+        return parseToken(token);
     }
 
-    /** 取令牌类型。 */
     public String getType(Claims claims) {
-        return claims.get(CLAIM_TYPE, String.class);
+        return claims.get("type", String.class);
     }
 
-    /** 令牌剩余有效秒数，已过期返回 0。 */
+    public Long getUserId(Claims claims) {
+        return claims.get("userId", Long.class);
+    }
+
     public long getRemainSeconds(Claims claims) {
-        Date expiration = claims.getExpiration();
-        if (expiration == null) {
-            return 0L;
+        Date expirationDate = claims.getExpiration();
+        if (expirationDate == null) {
+            return 0;
         }
-        long remain = (expiration.getTime() - System.currentTimeMillis()) / 1000L;
-        return Math.max(remain, 0L);
-    }
-
-    private SecretKey secretKey() {
-        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+        long remain = expirationDate.getTime() - System.currentTimeMillis();
+        return Math.max(remain / 1000, 0);
     }
 }

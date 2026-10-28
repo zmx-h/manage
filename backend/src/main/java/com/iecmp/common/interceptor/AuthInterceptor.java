@@ -1,118 +1,73 @@
 package com.iecmp.common.interceptor;
 
-import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.context.UserContext;
-import com.iecmp.common.exception.BusinessException;
-import com.iecmp.common.properties.IecmpProperties;
-import com.iecmp.common.properties.JwtProperties;
-import com.iecmp.common.result.ResultCode;
-import com.iecmp.common.security.TokenService;
+import com.iecmp.common.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
 
-    private final TokenService tokenService;
-    private final JwtProperties jwtProperties;
-    private final IecmpProperties iecmpProperties;
+    @Autowired
+    private JwtUtil jwtUtil;
+
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String path = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String token = request.getHeader("Authorization");
+
+        if (token == null || token.trim().isEmpty()) {
+            System.out.println(">>> 没带 Token，拦截！");
+            response.setStatus(401);
+            return false;
         }
 
-        if (matches(iecmpProperties.getAuth().getIgnoreUrls(), path)) {
-            return true;
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7).trim();
         }
 
-        String token = resolveToken(request);
-        boolean optional = matches(iecmpProperties.getAuth().getOptionalUrls(), path);
+        System.out.println(">>> 拦截器收到的纯 Token: [" + token + "]");
 
-        if (token == null || token.isEmpty()) {
-            if (optional) {
-                return true;
+        try {
+            Claims claims = jwtUtil.parseToken(token);
+
+            String type = claims.get("type", String.class);
+            if (!"access".equals(type)) {
+                System.out.println(">>> 传了 RefreshToken，拦截！");
+                response.setStatus(401);
+                return false;
             }
-            throw new BusinessException(ResultCode.UNAUTHORIZED);
-        }
-        LoginUser loginUser = tokenService.resolveAccessToken(token);
-        UserContext.set(loginUser);
 
-        if (optional) {
+            System.out.println(">>> 校验通过！当前用户ID：" + claims.get("userId"));
+
+            Long userId = claims.get("userId", Long.class);
+            String username = claims.get("username", String.class);
+
+            LoginUser loginUser = new LoginUser();
+            loginUser.setUserId(userId);
+            loginUser.setUsername(username);
+            loginUser.setSuperAdmin(false);
+            loginUser.setRoles(new java.util.HashSet<>());
+            loginUser.setPermissions(new java.util.HashSet<>());
+
+            UserContext.set(loginUser);
+
             return true;
+        } catch (Exception e) {
+            System.out.println(">>> Token 解析失败，原因：" + e.getMessage());
+            response.setStatus(401);
+            return false;
         }
-
-        if (handler instanceof HandlerMethod handlerMethod) {
-            RequiresPerm requiresPerm = handlerMethod.getMethodAnnotation(RequiresPerm.class);
-            if (requiresPerm != null && !hasPermission(loginUser, requiresPerm.value())) {
-                throw new BusinessException(ResultCode.FORBIDDEN);
-            }
-        }
-        return true;
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
-                                Object handler, Exception ex) {
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         UserContext.clear();
-    }
-
-    private boolean hasPermission(LoginUser loginUser, String[] required) {
-        if (loginUser.isSuperAdmin()) {
-            return true;
-        }
-        if (loginUser.getPermissions() == null || loginUser.getPermissions().isEmpty()) {
-            return false;
-        }
-        for (String perm : required) {
-            if (loginUser.getPermissions().contains(perm)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String resolveToken(HttpServletRequest request) {
-        String header = request.getHeader(jwtProperties.getHeader());
-        if (header == null || header.isBlank()) {
-            return null;
-        }
-        String prefix = jwtProperties.getPrefix();
-        if (prefix != null && !prefix.isEmpty() && header.startsWith(prefix)) {
-            return header.substring(prefix.length()).trim();
-        }
-        return header.trim();
-    }
-
-    private boolean matches(List<String> patterns, String path) {
-        if (patterns == null || patterns.isEmpty()) {
-            return false;
-        }
-        for (String pattern : patterns) {
-            if (pattern == null || pattern.isEmpty()) {
-                continue;
-            }
-            if (pattern.endsWith("/**")) {
-                String prefix = pattern.substring(0, pattern.length() - 3);
-                boolean hit = path.equals(prefix) || path.startsWith(prefix + "/");
-                if (hit) {
-                    return true;
-                }
-            } else if (pattern.equals(path)) {
-                return true;
-            }
-        }
-        return false;
     }
 }
