@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iecmp.seat.entity.SeatSwap;
 import com.iecmp.seat.query.SeatSwapMyPageQuery;
+import com.iecmp.seat.query.SeatSwapPageQuery;
 import com.iecmp.seat.vo.SeatSwapMyPageVO;
+import com.iecmp.seat.vo.SeatSwapPageVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -31,4 +33,6 @@ import org.apache.ibatis.annotations.Param;
 public interface SeatSwapMapper extends BaseMapper<SeatSwap> {
 
     IPage<SeatSwapMyPageVO> selectMyPage(Page<?> page, @Param("query") SeatSwapMyPageQuery query, @Param("currentUserId") Long currentUserId);
+
+    IPage<SeatSwapPageVO> selectAdminPage(Page<?> page, @Param("query") SeatSwapPageQuery query);
 }

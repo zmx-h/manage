@@ -1,5 +1,6 @@
 package com.iecmp.seat.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -86,6 +87,11 @@ public class AdminSeatPlanVO implements Serializable {
     public static class SeatVO implements Serializable {
 
         private static final long serialVersionUID = 1L;
+
+        /** 所属区域 ID（仅用于 Service 层分组，不返回前端） */
+        @JsonIgnore
+        @Schema(description = "所属区域 ID（仅用于分组，不返回前端）", hidden = true)
+        private Long areaId;
 
         /** 工位 ID */
         @Schema(description = "工位 ID")

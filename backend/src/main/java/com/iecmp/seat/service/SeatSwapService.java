@@ -2,11 +2,14 @@ package com.iecmp.seat.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.iecmp.common.result.PageResult;
+import com.iecmp.seat.dto.SeatSwapAuditDTO;
 import com.iecmp.seat.dto.SeatSwapDTO;
 import com.iecmp.seat.dto.SeatSwapHandleDTO;
 import com.iecmp.seat.entity.SeatSwap;
 import com.iecmp.seat.query.SeatSwapMyPageQuery;
+import com.iecmp.seat.query.SeatSwapPageQuery;
 import com.iecmp.seat.vo.SeatSwapMyPageVO;
+import com.iecmp.seat.vo.SeatSwapPageVO;
 import com.iecmp.seat.vo.SeatSwapVO;
 
 /**
@@ -24,4 +27,8 @@ public interface SeatSwapService extends IService<SeatSwap> {
     PageResult<SeatSwapMyPageVO> mySwapPage(SeatSwapMyPageQuery query, Long currentUserId);
 
     void handleSwap(Long id, SeatSwapHandleDTO dto, Long userId);
+
+    PageResult<SeatSwapPageVO> pageSwap(SeatSwapPageQuery query);
+
+    void auditSwap(Long id, SeatSwapAuditDTO dto, Long auditUserId);
 }

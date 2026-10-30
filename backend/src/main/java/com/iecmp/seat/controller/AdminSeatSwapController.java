@@ -4,6 +4,7 @@ import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.annotation.RequiresPerm;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
+import com.iecmp.common.util.LoginUserUtil;
 import com.iecmp.seat.dto.SeatSwapAuditDTO;
 import com.iecmp.seat.query.SeatSwapPageQuery;
 import com.iecmp.seat.service.SeatInfoService;
@@ -52,8 +53,7 @@ public class AdminSeatSwapController {
     @RequiresPerm("seat:swap:list")
     @GetMapping("/admin/seat/swap/page")
     public Result<PageResult<SeatSwapPageVO>> getSeatSwapPage(@ParameterObject SeatSwapPageQuery query) {
-        // TODO 待实现（接口 5-23）：见《IECMP-接口开发文档-v1.6.md》接口 5-23
-        return Result.todo("5-23");
+        return Result.success(seatSwapService.pageSwap(query));
     }
 
     /**
@@ -68,7 +68,8 @@ public class AdminSeatSwapController {
     @OperLog(module = "管理端-调换申请审核", value = "调换申请审核（负责人）")
     @PutMapping("/admin/seat/swap/{id}/audit")
     public Result<Void> putSeatSwapAudit(@PathVariable("id") Long id, @RequestBody @Valid SeatSwapAuditDTO dto) {
-        // TODO 待实现（接口 5-24）：见《IECMP-接口开发文档-v1.6.md》接口 5-24
-        return Result.todo("5-24");
+        Long auditUserId = LoginUserUtil.getUserId();
+        seatSwapService.auditSwap(id, dto, auditUserId);
+        return Result.success(null);
     }
 }

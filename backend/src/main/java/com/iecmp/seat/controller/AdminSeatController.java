@@ -20,6 +20,7 @@ import com.iecmp.seat.vo.SeatPlanDragVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -173,9 +174,8 @@ public class AdminSeatController {
     @Operation(summary = "5-25 平面图数据（后台）", description = "一次返回区域、底图尺寸与全部工位坐标及使用人信息，供管理端渲染可拖拽平面图")
     @RequiresPerm("seat:seat:list")
     @GetMapping("/admin/seat/plan")
-    public Result<AdminSeatPlanVO> getSeatPlan(@ParameterObject AdminSeatPlanQuery query) {
-        // TODO 待实现（接口 5-25）：见《IECMP-接口开发文档-v1.6.md》接口 5-25
-        return Result.todo("5-25");
+    public Result<List<AdminSeatPlanVO>> getSeatPlan(@ParameterObject AdminSeatPlanQuery query) {
+        return Result.success(seatAreaService.getPlanData(query.getAreaId(), query.getWithDisabled()));
     }
 
     /**
@@ -190,7 +190,6 @@ public class AdminSeatController {
     @OperLog(module = "管理端-工位管理", value = "平面图拖拽调整（移动 / 互换）")
     @PostMapping("/admin/seat/plan/drag")
     public Result<SeatPlanDragVO> postSeatPlanDrag(@RequestBody @Valid SeatPlanDragDTO dto) {
-        // TODO 待实现（接口 5-26）：见《IECMP-接口开发文档-v1.6.md》接口 5-26
-        return Result.todo("5-26");
+        return Result.success(seatInfoService.drag(dto));
     }
 }

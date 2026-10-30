@@ -44,4 +44,54 @@
         ORDER BY a.create_time DESC
     </select>
 
+    <select id="selectAdminPage" resultType="com.iecmp.seat.vo.SeatSwapPageVO">
+        SELECT
+            s.id               AS swapId,
+            s.apply_user_id    AS applyUserId,
+            u1.real_name       AS applyUserName,
+            u1.grade           AS applyUserGrade,
+            s.apply_seat_id    AS applySeatId,
+            si1.seat_no        AS applySeatNo,
+            s.target_user_id   AS targetUserId,
+            u2.real_name       AS targetUserName,
+            u2.grade           AS targetUserGrade,
+            s.target_seat_id   AS targetSeatId,
+            si2.seat_no        AS targetSeatNo,
+            s.reason           AS reason,
+            s.status           AS status,
+            s.handle_time      AS handleTime,
+            s.handle_remark    AS handleRemark,
+            s.audit_user_id    AS auditUserId,
+            u3.real_name       AS auditUserName,
+            s.audit_time       AS auditTime,
+            s.audit_remark     AS auditRemark,
+            s.create_time      AS createTime
+        FROM seat_swap s
+        LEFT JOIN sys_user u1 ON s.apply_user_id = u1.id AND u1.deleted = 0
+        LEFT JOIN sys_user u2 ON s.target_user_id = u2.id AND u2.deleted = 0
+        LEFT JOIN sys_user u3 ON s.audit_user_id = u3.id AND u3.deleted = 0
+        LEFT JOIN seat_info si1 ON s.apply_seat_id = si1.id AND si1.deleted = 0
+        LEFT JOIN seat_info si2 ON s.target_seat_id = si2.id AND si2.deleted = 0
+        WHERE s.deleted = 0
+        <if test="query.status != null">
+            AND s.status = #{query.status}
+        </if>
+        <if test="query.userId != null">
+            AND (s.apply_user_id = #{query.userId} OR s.target_user_id = #{query.userId})
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (u1.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR u2.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR si1.seat_no LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR si2.seat_no LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.beginTime != null and query.beginTime != ''">
+            AND s.create_time &gt;= #{query.beginTime}
+        </if>
+        <if test="query.endTime != null and query.endTime != ''">
+            AND s.create_time &lt;= #{query.endTime}
+        </if>
+        ORDER BY s.create_time DESC
+    </select>
+
 </mapper>

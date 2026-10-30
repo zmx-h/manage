@@ -1,10 +1,12 @@
 package com.iecmp.seat.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.iecmp.seat.dto.SeatPlanDragDTO;
 import com.iecmp.seat.entity.SeatInfo;
 import com.iecmp.seat.query.SeatListQuery;
 import com.iecmp.seat.vo.SeatListVO;
 import com.iecmp.seat.vo.SeatMyVO;
+import com.iecmp.seat.vo.SeatPlanDragVO;
 import java.util.List;
 
 /**
@@ -20,4 +22,6 @@ public interface SeatInfoService extends IService<SeatInfo> {
     List<SeatListVO> getSeatList(SeatListQuery query);
 
     SeatMyVO getMySeat(Long userId);
+
+    SeatPlanDragVO drag(SeatPlanDragDTO dto);
 }

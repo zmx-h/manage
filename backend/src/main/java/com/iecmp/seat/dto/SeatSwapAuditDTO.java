@@ -2,6 +2,7 @@ package com.iecmp.seat.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import lombok.Data;
 
@@ -24,5 +25,6 @@ public class SeatSwapAuditDTO implements Serializable {
 
     /** 审核意见 */
     @Schema(description = "审核意见")
+    @Size(max = 500, message = "审核意见不能超过 500 字")
     private String auditRemark;
 }

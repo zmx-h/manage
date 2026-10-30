@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.PageResult;
+import com.iecmp.seat.dto.SeatSwapAuditDTO;
 import com.iecmp.seat.dto.SeatSwapDTO;
 import com.iecmp.seat.dto.SeatSwapHandleDTO;
 import com.iecmp.seat.entity.SeatInfo;
@@ -14,11 +15,14 @@ import com.iecmp.seat.enums.SeatErrorCode;
 import com.iecmp.seat.mapper.SeatInfoMapper;
 import com.iecmp.seat.mapper.SeatSwapMapper;
 import com.iecmp.seat.query.SeatSwapMyPageQuery;
+import com.iecmp.seat.query.SeatSwapPageQuery;
 import com.iecmp.seat.service.SeatSwapService;
 import com.iecmp.seat.vo.SeatSwapMyPageVO;
+import com.iecmp.seat.vo.SeatSwapPageVO;
 import com.iecmp.seat.vo.SeatSwapVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -104,5 +108,61 @@ public class SeatSwapServiceImpl extends ServiceImpl<SeatSwapMapper, SeatSwap>
         seatSwap.setHandleRemark(dto.getHandleRemark());
         seatSwap.setHandleTime(LocalDateTime.now());
         this.updateById(seatSwap);
+    }
+
+    @Override
+    public PageResult<SeatSwapPageVO> pageSwap(SeatSwapPageQuery query) {
+        Page<SeatSwapPageVO> page = new Page<>(query.getPageNum(), query.getPageSize());
+        return PageResult.of(baseMapper.selectAdminPage(page, query));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void auditSwap(Long id, SeatSwapAuditDTO dto, Long auditUserId) {
+        SeatSwap swap = this.getOne(new LambdaQueryWrapper<SeatSwap>()
+                .eq(SeatSwap::getId, id)
+                .eq(SeatSwap::getDeleted, 0));
+        if (swap == null) {
+            throw new BusinessException(SeatErrorCode.E50009.getCode(), SeatErrorCode.E50009.getMsg());
+        }
+        if (swap.getStatus() != 1) {
+            throw new BusinessException(SeatErrorCode.E50013.getCode(), SeatErrorCode.E50013.getMsg());
+        }
+        Integer auditStatus = dto.getAuditStatus();
+        if (auditStatus != 1 && auditStatus != 2) {
+            throw new BusinessException(SeatErrorCode.E50013.getCode(), SeatErrorCode.E50013.getMsg());
+        }
+        swap.setAuditUserId(auditUserId);
+        swap.setAuditTime(LocalDateTime.now());
+        swap.setAuditRemark(dto.getAuditRemark());
+        if (auditStatus == 2) {
+            swap.setStatus(3);
+            this.updateById(swap);
+            return;
+        }
+        SeatInfo applySeat = seatInfoMapper.selectOne(new LambdaQueryWrapper<SeatInfo>()
+                .eq(SeatInfo::getId, swap.getApplySeatId())
+                .eq(SeatInfo::getDeleted, 0));
+        if (applySeat == null || !swap.getApplyUserId().equals(applySeat.getUserId())) {
+            throw new BusinessException(SeatErrorCode.E50011.getCode(), SeatErrorCode.E50011.getMsg());
+        }
+        SeatInfo targetSeat = seatInfoMapper.selectOne(new LambdaQueryWrapper<SeatInfo>()
+                .eq(SeatInfo::getId, swap.getTargetSeatId())
+                .eq(SeatInfo::getDeleted, 0));
+        if (targetSeat == null || !swap.getTargetUserId().equals(targetSeat.getUserId())) {
+            throw new BusinessException(SeatErrorCode.E50011.getCode(), SeatErrorCode.E50011.getMsg());
+        }
+        applySeat.setUserId(swap.getTargetUserId());
+        applySeat.setAssignTime(LocalDateTime.now());
+        if (seatInfoMapper.updateById(applySeat) != 1) {
+            throw new BusinessException(SeatErrorCode.E50013.getCode(), SeatErrorCode.E50013.getMsg());
+        }
+        targetSeat.setUserId(swap.getApplyUserId());
+        targetSeat.setAssignTime(LocalDateTime.now());
+        if (seatInfoMapper.updateById(targetSeat) != 1) {
+            throw new BusinessException(SeatErrorCode.E50013.getCode(), SeatErrorCode.E50013.getMsg());
+        }
+        swap.setStatus(2);
+        this.updateById(swap);
     }
 }

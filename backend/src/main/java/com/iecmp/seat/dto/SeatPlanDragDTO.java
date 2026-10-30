@@ -2,6 +2,7 @@ package com.iecmp.seat.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import lombok.Data;
 
@@ -29,5 +30,6 @@ public class SeatPlanDragDTO implements Serializable {
 
     /** 调整说明，如「按方向重新排座」，最长 255 字 */
     @Schema(description = "调整说明，如「按方向重新排座」，最长 255 字")
+    @Size(max = 255, message = "调整说明不能超过 255 字")
     private String remark;
 }

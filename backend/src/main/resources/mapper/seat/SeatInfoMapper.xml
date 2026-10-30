@@ -79,4 +79,47 @@
         LIMIT 1
     </select>
 
+    <select id="selectAdminPlanSeats" resultType="com.iecmp.seat.vo.AdminSeatPlanVO$SeatVO">
+        SELECT
+            s.id           AS seatId,
+            s.area_id      AS areaId,
+            s.seat_no      AS seatNo,
+            s.seat_type    AS seatType,
+            s.x_ratio      AS xRatio,
+            s.y_ratio      AS yRatio,
+            s.width_ratio  AS widthRatio,
+            s.height_ratio AS heightRatio,
+            s.rotation     AS rotation,
+            s.status       AS status,
+            s.user_id      AS occupantUserId,
+            u.real_name    AS occupantName,
+            u.grade        AS occupantGrade,
+            u.major        AS occupantMajor,
+            s.assign_time  AS assignTime,
+            s.remark       AS remark
+        FROM seat_info s
+        LEFT JOIN sys_user u ON s.user_id = u.id AND u.deleted = 0
+        WHERE s.deleted = 0
+          AND s.area_id IN
+        <foreach collection="areaIds" item="aid" open="(" close=")" separator=",">
+            #{aid}
+        </foreach>
+    </select>
+
+    <select id="selectSeatBriefByIds" resultType="com.iecmp.seat.vo.SeatPlanDragVO$FromSeatVO">
+        SELECT
+            s.id        AS seatId,
+            s.seat_no   AS seatNo,
+            s.status    AS status,
+            s.user_id   AS occupantUserId,
+            u.real_name AS occupantName
+        FROM seat_info s
+        LEFT JOIN sys_user u ON s.user_id = u.id AND u.deleted = 0
+        WHERE s.deleted = 0
+          AND s.id IN
+        <foreach collection="seatIds" item="sid" open="(" close=")" separator=",">
+            #{sid}
+        </foreach>
+    </select>
+
 </mapper>
