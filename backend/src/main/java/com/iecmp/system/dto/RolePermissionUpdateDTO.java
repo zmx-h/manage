@@ -1,7 +1,6 @@
 package com.iecmp.system.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotEmpty;
 import java.io.Serializable;
 import java.util.List;
 import lombok.Data;
@@ -20,6 +19,5 @@ public class RolePermissionUpdateDTO implements Serializable {
 
     /** 权限码列表，传空数组表示清空权限 */
     @Schema(description = "权限码列表，传空数组表示清空权限")
-    @NotEmpty(message = "权限码列表，传空数组表示清空权限不能为空")
     private List<String> permCodes;
 }

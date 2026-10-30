@@ -1,5 +1,6 @@
 package com.iecmp.system.service.impl;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.exception.BusinessException;
@@ -7,7 +8,10 @@ import com.iecmp.common.properties.JwtProperties;
 import com.iecmp.common.result.ResultCode;
 import com.iecmp.common.security.TokenService;
 import com.iecmp.common.util.LoginUserUtil;
+import com.iecmp.common.util.PasswordUtil;
 import com.iecmp.system.dto.AdminLoginDTO;
+import com.iecmp.system.dto.InfoUpdateDTO;
+import com.iecmp.system.dto.PasswordUpdateDTO;
 import com.iecmp.system.dto.TokenRefreshDTO;
 import com.iecmp.system.dto.UserLoginDTO;
 import com.iecmp.system.entity.SysUser;
@@ -157,6 +161,90 @@ public class AuthServiceImpl implements AuthService {
                 ? null
                 : user.getLastLoginTime().format(DATE_TIME_FORMATTER));
         return vo;
+    }
+
+    @Override
+    public void updateCurrentUserInfo(InfoUpdateDTO dto) {
+        Long userId = LoginUserUtil.getUserId();
+        SysUser current = sysUserService.getById(userId);
+        if (current == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+
+        SysUser patch = new SysUser();
+        patch.setId(userId);
+        boolean changed = false;
+
+        if (dto.getRealName() != null) {
+            if (!StringUtils.hasText(dto.getRealName())) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "姓名不能为空");
+            }
+            patch.setRealName(dto.getRealName().trim());
+            changed = true;
+        }
+        if (dto.getPhone() != null) {
+            String phone = trimToNull(dto.getPhone());
+            if (phone != null && !phone.matches("\\d{11}")) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "手机号需为 11 位数字");
+            }
+            if (phone != null && sysUserService.count(Wrappers.<SysUser>lambdaQuery()
+                    .eq(SysUser::getPhone, phone).ne(SysUser::getId, userId)) > 0) {
+                throw new BusinessException(SystemErrorCode.E10008.getCode(), SystemErrorCode.E10008.getMsg());
+            }
+            patch.setPhone(phone);
+            changed = phone != null;
+        }
+        if (dto.getEmail() != null) {
+            String email = trimToNull(dto.getEmail());
+            if (email != null && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "邮箱格式不正确");
+            }
+            if (email != null && sysUserService.count(Wrappers.<SysUser>lambdaQuery()
+                    .eq(SysUser::getEmail, email).ne(SysUser::getId, userId)) > 0) {
+                throw new BusinessException(SystemErrorCode.E10009.getCode(), SystemErrorCode.E10009.getMsg());
+            }
+            patch.setEmail(email);
+            changed = email != null;
+        }
+        if (dto.getAvatarUrl() != null) {
+            patch.setAvatarUrl(trimToNull(dto.getAvatarUrl()));
+            changed = true;
+        }
+        if (changed) {
+            sysUserService.updateById(patch);
+        }
+    }
+
+    @Override
+    public void updatePassword(PasswordUpdateDTO dto, String authorizationHeader) {
+        Long userId = LoginUserUtil.getUserId();
+        SysUser user = sysUserService.getById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        if (!PasswordUtil.matches(dto.getOldPassword(), user.getPassword())) {
+            throw new BusinessException(SystemErrorCode.E10010.getCode(), SystemErrorCode.E10010.getMsg());
+        }
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new BusinessException(SystemErrorCode.E10011.getCode(), SystemErrorCode.E10011.getMsg());
+        }
+        if (!dto.getNewPassword().matches("^(?=.*[A-Za-z])(?=.*\\d).{6,32}$")) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "新密码需为 6~32 位且同时包含字母与数字");
+        }
+
+        SysUser patch = new SysUser();
+        patch.setId(userId);
+        patch.setPassword(PasswordUtil.encode(dto.getNewPassword()));
+        sysUserService.updateById(patch);
+
+        String token = resolveToken(authorizationHeader);
+        if (StringUtils.hasText(token)) {
+            tokenService.blacklist(token);
+        }
+    }
+
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private AuthenticatedUser authenticate(String rawUsername, String password,

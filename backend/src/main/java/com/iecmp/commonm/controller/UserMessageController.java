@@ -3,6 +3,7 @@ package com.iecmp.commonm.controller;
 import com.iecmp.common.annotation.OperLog;
 import com.iecmp.common.result.PageResult;
 import com.iecmp.common.result.Result;
+import com.iecmp.common.util.LoginUserUtil;
 import com.iecmp.commonm.dto.MessageReadDTO;
 import com.iecmp.commonm.query.MessagePageQuery;
 import com.iecmp.commonm.service.SysMessageService;
@@ -24,10 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>覆盖接口：8-20、8-21、8-22，共 3 个。
  *
- * <p><b>骨架说明</b>：所有方法体都是占位实现，统一返回
- * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
- * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
- *
  * @author IECMP 后端组
  */
 @Tag(name = "用户端-站内消息")
@@ -35,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class UserMessageController {
 
-    /** SysMessage 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
     private final SysMessageService sysMessageService;
 
     /**
@@ -48,8 +44,7 @@ public class UserMessageController {
     @Operation(summary = "8-20 我的消息分页", description = "分页查询当前登录用户的站内消息，用于消息中心列表页")
     @GetMapping("/user/message/page")
     public Result<PageResult<MessagePageVO>> getMessagePage(@ParameterObject MessagePageQuery query) {
-        // TODO 待实现（接口 8-20）：见《IECMP-接口开发文档-v1.6.md》接口 8-20
-        return Result.todo("8-20");
+        return Result.success(sysMessageService.pageMy(LoginUserUtil.getUserId(), query));
     }
 
     /**
@@ -62,8 +57,7 @@ public class UserMessageController {
     @Operation(summary = "8-21 未读消息数", description = "返回当前用户未读消息总数与分类数量，用于导航栏红点与消息中心分组")
     @GetMapping("/user/message/unread/count")
     public Result<MessageUnreadCountVO> getMessageUnreadCount() {
-        // TODO 待实现（接口 8-21）：见《IECMP-接口开发文档-v1.6.md》接口 8-21
-        return Result.todo("8-21");
+        return Result.success(sysMessageService.unreadCount(LoginUserUtil.getUserId()));
     }
 
     /**
@@ -77,7 +71,6 @@ public class UserMessageController {
     @OperLog(module = "用户端-站内消息", value = "标记消息已读")
     @PutMapping("/user/message/read")
     public Result<MessageReadVO> putMessageRead(@RequestBody @Valid MessageReadDTO dto) {
-        // TODO 待实现（接口 8-22）：见《IECMP-接口开发文档-v1.6.md》接口 8-22
-        return Result.todo("8-22");
+        return Result.success(sysMessageService.markRead(LoginUserUtil.getUserId(), dto));
     }
 }

@@ -64,10 +64,9 @@ public class AdminAssetController {
      * <p>权限：asset:info:list；令牌：是；分页返回。
      */
     @Operation(summary = "4-08 资产分页（后台）", description = "管理端分页查询资产台账，支持更多筛选维度")
-    //@RequiresPerm("asset:info:list")
+    @RequiresPerm("asset:info:list")
     @GetMapping("/admin/asset/page")
     public Result<PageResult<AdminAssetPageVO>> getAssetPage(@ParameterObject AdminAssetPageQuery query) {
-        // TODO 待实现（接口 4-08）：见《IECMP-接口开发文档-v1.6.md》接口 4-08
         return Result.success(assetInfoService.page(query));
     }
 
@@ -82,7 +81,6 @@ public class AdminAssetController {
     @RequiresPerm("asset:info:query")
     @GetMapping("/admin/asset/{id}")
     public Result<AdminAssetDetailVO> getAsset(@PathVariable("id") Long id) {
-        // TODO 待实现（接口 4-09）：见《IECMP-接口开发文档-v1.6.md》接口 4-09
         return Result.success(assetInfoService.detail(id));
     }
 

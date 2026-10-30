@@ -23,10 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>覆盖接口：7-20、7-21，共 2 个。
  *
- * <p><b>骨架说明</b>：所有方法体都是占位实现，统一返回
- * {@code Result.todo("x-xx")}（code = 500，msg = 接口 x-xx 尚未实现）。
- * 全局搜索 {@code Result.todo} 可定位全部待实现接口。
- *
  * @author IECMP 后端组
  */
 @Tag(name = "管理端-值日提醒")
@@ -34,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AdminDutyReminderController {
 
-    /** DutyReminderConfig 业务接口（骨架阶段仅注入，方法体待实现时使用）。 */
+    /** DutyReminderConfig 业务接口。 */
     private final DutyReminderConfigService dutyReminderConfigService;
 
     /**
@@ -48,8 +44,7 @@ public class AdminDutyReminderController {
     @RequiresPerm("duty:reminder:config")
     @GetMapping("/admin/duty/reminder")
     public Result<DutyReminderVO> getDutyReminder(@ParameterObject DutyReminderQuery query) {
-        // TODO 待实现（接口 7-20）：见《IECMP-接口开发文档-v1.6.md》接口 7-20
-        return Result.todo("7-20");
+        return Result.success(dutyReminderConfigService.get(query));
     }
 
     /**
@@ -64,7 +59,6 @@ public class AdminDutyReminderController {
     @OperLog(module = "管理端-值日提醒", value = "提醒配置保存")
     @PutMapping("/admin/duty/reminder")
     public Result<DutyReminderUpdateVO> putDutyReminder(@RequestBody @Valid DutyReminderUpdateDTO dto) {
-        // TODO 待实现（接口 7-21）：见《IECMP-接口开发文档-v1.6.md》接口 7-21
-        return Result.todo("7-21");
+        return Result.success(dutyReminderConfigService.save(dto));
     }
 }

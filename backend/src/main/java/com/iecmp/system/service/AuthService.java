@@ -1,6 +1,8 @@
 package com.iecmp.system.service;
 
 import com.iecmp.system.dto.AdminLoginDTO;
+import com.iecmp.system.dto.InfoUpdateDTO;
+import com.iecmp.system.dto.PasswordUpdateDTO;
 import com.iecmp.system.dto.TokenRefreshDTO;
 import com.iecmp.system.dto.UserLoginDTO;
 import com.iecmp.system.vo.AdminLoginVO;
@@ -27,4 +29,10 @@ public interface AuthService {
 
     /** 1-05 当前用户信息。 */
     InfoVO getCurrentUserInfo();
+
+    /** 1-06 修改当前用户资料。 */
+    void updateCurrentUserInfo(InfoUpdateDTO dto);
+
+    /** 1-07 修改当前用户密码，并使当前 accessToken 失效。 */
+    void updatePassword(PasswordUpdateDTO dto, String authorizationHeader);
 }

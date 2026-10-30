@@ -1,6 +1,7 @@
 package com.iecmp.system.controller;
 
 import com.iecmp.common.annotation.OperLog;
+import com.iecmp.common.properties.JwtProperties;
 import com.iecmp.common.result.Result;
 import com.iecmp.system.dto.InfoUpdateDTO;
 import com.iecmp.system.dto.PasswordUpdateDTO;
@@ -8,6 +9,7 @@ import com.iecmp.system.service.AuthService;
 import com.iecmp.system.vo.InfoVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserInfoController {
 
     private final AuthService authService;
+    private final JwtProperties jwtProperties;
 
     /**
      * 1-05 当前用户信息。
@@ -53,8 +56,8 @@ public class UserInfoController {
     @OperLog(module = "用户端-个人信息", value = "修改个人资料")
     @PutMapping("/user/info")
     public Result<Void> putInfo(@RequestBody @Valid InfoUpdateDTO dto) {
-        // TODO 待实现（接口 1-06）：见《IECMP-接口开发文档-v1.6.md》接口 1-06
-        return Result.todo("1-06");
+        authService.updateCurrentUserInfo(dto);
+        return Result.success();
     }
 
     /**
@@ -67,8 +70,9 @@ public class UserInfoController {
     @Operation(summary = "1-07 修改密码", description = "修改当前登录用户密码，校验原密码；修改后当前令牌失效，需重新登录")
     @OperLog(module = "用户端-个人信息", value = "修改密码")
     @PutMapping("/user/password")
-    public Result<Void> putPassword(@RequestBody @Valid PasswordUpdateDTO dto) {
-        // TODO 待实现（接口 1-07）：见《IECMP-接口开发文档-v1.6.md》接口 1-07
-        return Result.todo("1-07");
+    public Result<Void> putPassword(@RequestBody @Valid PasswordUpdateDTO dto,
+            HttpServletRequest request) {
+        authService.updatePassword(dto, request.getHeader(jwtProperties.getHeader()));
+        return Result.success();
     }
 }

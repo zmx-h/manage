@@ -1,15 +1,25 @@
 package com.iecmp.commonm.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.iecmp.common.result.PageResult;
+import com.iecmp.commonm.dto.MessageReadDTO;
 import com.iecmp.commonm.entity.SysMessage;
+import com.iecmp.commonm.query.MessagePageQuery;
+import com.iecmp.commonm.vo.MessagePageVO;
+import com.iecmp.commonm.vo.MessageReadVO;
+import com.iecmp.commonm.vo.MessageUnreadCountVO;
 
 /**
- * 站内消息（补充）业务接口（{@code sys_message}）。
- *
- * <p>骨架阶段只继承 {@code IService} 获得通用 CRUD 能力；
- * 实现具体接口时，把该表的专有业务方法声明在这里，并在 Impl 中实现。
- *
- * @author IECMP 后端组
+ * 站内消息业务接口（{@code sys_message}）。
  */
 public interface SysMessageService extends IService<SysMessage> {
+
+    /** 8-20 当前用户消息分页。 */
+    PageResult<MessagePageVO> pageMy(Long userId, MessagePageQuery query);
+
+    /** 8-21 当前用户未读消息统计。 */
+    MessageUnreadCountVO unreadCount(Long userId);
+
+    /** 8-22 标记当前用户消息已读。 */
+    MessageReadVO markRead(Long userId, MessageReadDTO dto);
 }

@@ -21,6 +21,9 @@ public class IecmpProperties {
     /** 鉴权配置。 */
     private Auth auth = new Auth();
 
+    /** 注册入口配置（接口 1-22）。 */
+    private Register register = new Register();
+
     @Data
     public static class Cors {
 
@@ -41,5 +44,21 @@ public class IecmpProperties {
          * 前台展示视频列表。
          */
         private List<String> optionalUrls = new ArrayList<>();
+    }
+
+    @Data
+    public static class Register {
+
+        /** 1 开启邀请码注册，0 关闭。 */
+        private Integer inviteEnabled = 1;
+
+        /** 1 开启注册申请，0 关闭。 */
+        private Integer applyEnabled = 1;
+
+        /** 1 需要图形验证码，0 关闭。 */
+        private Integer captchaEnabled = 0;
+
+        /** 注册页提示文案。 */
+        private String tips = "";
     }
 }

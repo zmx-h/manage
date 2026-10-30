@@ -33,9 +33,6 @@ public class DutyScheduleCalendarVO implements Serializable {
     @Schema(description = "日期数组，结构见下表")
     private List<DayVO> days;
 
-    /** 当日值日安排，元素含 `scheduleId`、`userId`、`userName`、`groupName`、`taskContent`、`status` */
-    @Schema(description = "当日值日安排，元素含 `scheduleId`、`userId`、`userName`、`groupName`、`taskContent`、`status`")
-    private List<DutyVO> duties;
 
     /**
      * DayVO：值日日历（月视图） 响应体的嵌套结构，字段含义见接口文档。
@@ -56,6 +53,10 @@ public class DutyScheduleCalendarVO implements Serializable {
         /** 当日是否由当前用户值日 */
         @Schema(description = "当日是否由当前用户值日")
         private Integer isMine;
+
+        /** 当日值日安排 */
+        @Schema(description = "当日值日安排")
+        private List<DutyVO> duties;
     }
 
     /**

@@ -82,6 +82,9 @@ jwt:
 upload:
   max-image-size: 5242880         # 图片上限 5MB
   max-doc-size: 20971520          # 文档上限 20MB
+  # 本地联调存储；生产可将 url-prefix 换成 OSS/CDN 地址
+  local-dir: ./upload
+  url-prefix: /api/upload
 
 oss:
   endpoint: oss-cn-hangzhou.aliyuncs.com
@@ -109,6 +112,7 @@ iecmp:
       - /common/dict/**
       - /common/captcha
       - /common/health
+      - /upload/**
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
@@ -122,6 +126,13 @@ iecmp:
       - /user/honor/alumni/page
       - /user/honor/stat
       - /user/video/list
+
+  # 注册入口开关（接口 1-22）：部署配置，不落数据库
+  register:
+    invite-enabled: 1
+    apply-enabled: 1
+    captcha-enabled: 0
+    tips: "仅限创业中心内部成员使用"
 
 # ----------------------------------------------------------------------------
 #  模块二：代码仓库关联（架构文档 7.3 节 / 接口文档第 8 章）
