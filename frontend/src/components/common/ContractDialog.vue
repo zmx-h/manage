@@ -36,12 +36,12 @@
       @submit.prevent="submit"
     >
       <el-form-item
-        v-for="f in fields"
-        :key="f.key"
-        :prop="f.key"
-        :label="labelFor(f.key, isEn)"
-        :rules="validation(f)"
-        :class="{ 'full-span': ['textarea','json','file'].includes(typeFor(f)) }"
+          v-for="f in visibleFields"
+          :key="f.key"
+          :prop="f.key"
+          :label="labelFor(f.key, isEn)"
+          :rules="validation(f)"
+          :class="{ 'full-span': ['textarea','json','file'].includes(typeFor(f)) }"
       >
         <el-select
           v-if="options[f.key]"
@@ -150,6 +150,12 @@ const emit = defineEmits(['done'])
 const visible = ref(false); const saving = ref(false); const error = ref(null); const contract = ref(null); const values = reactive({}); const fields = ref([]); const options = reactive({}); const formRef = ref(); const optionsLoading = ref(false); const result = ref(null); const showingResult = ref(false); const hint = ref('')
 const uploadFields = { avatarUrl: 'avatar', planImageUrl: 'seat', coverUrl: 'video', certificateUrl: 'honor', attachFileId: 'budget', voucherFileId: 'budget' }
 const dialogTitle = computed(() => isEn.value ? `${t(contract.value?.method === 'get' ? 'detail' : 'confirm')} · ${contract.value?.id || ''}` : contract.value?.name || '')
+const visibleFields = computed(() => {
+  if (!values.id) {
+    return fields.value.filter(f => f.key !== 'assetNo')
+  }
+  return fields.value
+})
 const validation = f => [{ required: f.required, message: t('required'), trigger: ['blur','change'], validator: (_, value, cb) => f.required && (value === undefined || value === null || value === '' || Array.isArray(value) && !value.length && f.key !== 'permCodes') ? cb(new Error(t('required'))) : cb() }]
 const maxLength = f => { const match = f.description.match(/(?:最长|最多)\s*(\d+)\s*(?:字|位)/); return match ? Number(match[1]) : undefined }
 function idOf(row) { return Object.entries(row).find(([key]) => /^(id|userId|roleId|accountId|periodId|itemId|applyId|expenseId|assetId|borrowId|inventoryId|seatId|swapId|alumniId|recordId|planId|scheduleId|noticeId|videoId|messageId|codeId|inviteCodeId)$/.test(key))?.[1] }
@@ -171,6 +177,7 @@ async function open(id, row = {}, defaults = {}) {
     if (!preview.value) {
       await Promise.all([
         lookup('roleIds','1-15','roleId','roleName'),
+        lookup('memberIds','1-08','userId','realName',{pageSize:100}),
         lookup('periodId', user.canAdmin ? '3-10' : '3-01','periodId','title',{pageSize:100}), lookup('areaId',user.canAdmin ? '5-07':'5-01','areaId','name'),
         ...fields.value.filter(f => fieldDictionaries[f.key] && !(f.key === 'bizType' && !id.startsWith('8-1'))).map(async f => { try { options[f.key] = await loadDict(fieldDictionaries[f.key]) } catch { /* Keep manual field input available. */ } })
       ])

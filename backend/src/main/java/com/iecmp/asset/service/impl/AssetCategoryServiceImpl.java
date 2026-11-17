@@ -31,7 +31,8 @@ import java.util.stream.Collectors;
 /**
  * 资产分类业务实现（{@code asset_category}）。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @Date 2026.11.17
  */
 @Slf4j
 @Service
@@ -120,10 +121,30 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             if (parent == null) {
                 throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
             }
+            // 父分类必须是一级分类（不允许三级及以上）
+            if (parent.getParentId() != null && parent.getParentId() != 0) {
+                throw new BusinessException(AssetErrorCode.E40003.getCode(), "分类最多只有两级，不能在二级分类下再添加子分类");
+            }
         }
 
-        // 2. 分类编码唯一性校验（code 可空，仅非空时校验）
+        // 2. 分类编码格式校验（两级分类规则）
         String code = dto.getCode();
+        if (code != null && !code.isBlank()) {
+            boolean isRoot = dto.getParentId() == null || dto.getParentId() == 0;
+            if (isRoot) {
+                // 一级分类：code 必须是单个大写字母（A-Z）
+                if (!code.matches("^[A-Z]$")) {
+                    throw new BusinessException(AssetErrorCode.E40003.getCode(), "一级分类编码必须是单个大写字母（A-Z）");
+                }
+            } else {
+                // 二级分类：code 必须是纯数字
+                if (!code.matches("^\\d+$")) {
+                    throw new BusinessException(AssetErrorCode.E40003.getCode(), "二级分类编码必须是纯数字");
+                }
+            }
+        }
+
+        // 3. 分类编码唯一性校验（code 可空，仅非空时校验）
         if (code != null && !code.isBlank()) {
             Long exists = this.count(Wrappers.lambdaQuery(AssetCategory.class)
                     .eq(AssetCategory::getCode, code));
@@ -169,6 +190,10 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             if (parent == null) {
                 throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
             }
+            // 父分类必须是一级分类（不允许三级及以上）
+            if (parent.getParentId() != null && parent.getParentId() != 0) {
+                throw new BusinessException(AssetErrorCode.E40003.getCode(), "分类最多只有两级，不能在二级分类下再添加子分类");
+            }
         }
 
         // 3. 不允许挂到自己或自己的子分类下（防止成环）
@@ -179,8 +204,22 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             }
         }
 
-        // 4. 分类编码唯一性校验（排除当前 id，仅非空时校验）
+        // 4. 分类编码格式校验（两级分类规则）
         String code = dto.getCode();
+        if (code != null && !code.isBlank()) {
+            boolean isRoot = parentId == null || parentId == 0;
+            if (isRoot) {
+                if (!code.matches("^[A-Z]$")) {
+                    throw new BusinessException(AssetErrorCode.E40003.getCode(), "一级分类编码必须是单个大写字母（A-Z）");
+                }
+            } else {
+                if (!code.matches("^\\d+$")) {
+                    throw new BusinessException(AssetErrorCode.E40003.getCode(), "二级分类编码必须是纯数字");
+                }
+            }
+        }
+
+        // 5. 分类编码唯一性校验（排除当前 id，仅非空时校验）
         if (code != null && !code.isBlank()) {
             Long exists = this.count(Wrappers.lambdaQuery(AssetCategory.class)
                     .eq(AssetCategory::getCode, code)
@@ -190,7 +229,7 @@ public class AssetCategoryServiceImpl extends ServiceImpl<AssetCategoryMapper, A
             }
         }
 
-        // 5. 更新
+        // 6. 更新
         entity.setName(dto.getName());
         entity.setParentId(parentId);
         entity.setCode(code);

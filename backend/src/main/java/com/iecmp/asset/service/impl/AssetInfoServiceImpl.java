@@ -69,7 +69,8 @@ import java.util.stream.Collectors;
 /**
  * 资产台账业务实现（{@code asset_info}）。
  *
- * @author IECMP 后端组
+ * @author liuyujie
+ * @Date 2026.11.17
  */
 @Slf4j
 @Service
@@ -258,22 +259,37 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AssetCreateVO add(AssetAddDTO dto) {
+
+        // 1. 分类校验：必须选择二级分类（用于生成编码）
+        if (dto.getCategoryId() == null) {
+            throw new BusinessException(AssetErrorCode.E40003.getCode(), "请选择资产分类");
+        }
+        AssetCategory category = assetCategoryService.getById(dto.getCategoryId());
+        if (category == null) {
+            throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
+        }
+        // 必须是二级分类
+        if (category.getParentId() == null || category.getParentId() == 0) {
+            throw new BusinessException(AssetErrorCode.E40003.getCode(), "请选择具体的二级分类，不能只选大类");
+        }
+        // 找一级分类（父分类）
+        AssetCategory parentCategory = assetCategoryService.getById(category.getParentId());
+        if (parentCategory == null) {
+            throw new BusinessException(AssetErrorCode.E40003.getCode(), "父分类不存在");
+        }
+        // 2. 自动生成资产编号
+        String assetNo = generateAssetNo(parentCategory, category);
+
+        // 3. 编号唯一性校验
         Long count = this.count(Wrappers.lambdaQuery(AssetInfo.class)
-                .eq(AssetInfo::getAssetNo, dto.getAssetNo().trim()));
+                .eq(AssetInfo::getAssetNo, assetNo));
         if (count > 0) {
             throw new BusinessException(AssetErrorCode.E40002.getCode(), AssetErrorCode.E40002.getMsg());
-        }
-
-        if (dto.getCategoryId() != null) {
-            AssetCategory category = assetCategoryService.getById(dto.getCategoryId());
-            if (category == null) {
-                throw new BusinessException(AssetErrorCode.E40003.getCode(), AssetErrorCode.E40003.getMsg());
-            }
         }
         validateSourceType(dto.getSourceType());
 
         AssetInfo entity = new AssetInfo();
-        entity.setAssetNo(dto.getAssetNo().trim());
+        entity.setAssetNo(assetNo);
         entity.setName(dto.getName().trim());
         entity.setCategoryId(dto.getCategoryId());
         entity.setBrand(dto.getBrand());
@@ -299,6 +315,26 @@ public class AssetInfoServiceImpl extends ServiceImpl<AssetInfoMapper, AssetInfo
         AssetCreateVO vo = new AssetCreateVO();
         vo.setAssetId(entity.getId());
         return vo;
+    }
+    /**
+     * 自动生成资产编号。
+     * 规则：一级分类code（字母） + 二级分类code（数字） + 3位顺序号（不足补0）
+     * 例如：A1001 → A类 + 小类1 + 第1个
+     */
+    private String generateAssetNo(AssetCategory parentCategory, AssetCategory category) {
+        // 1. 前缀 = 一级code + 二级code
+        String prefix = parentCategory.getCode() + category.getCode();
+
+        // 2. 统计该二级分类下已有多少资产
+        Long seqCount = this.count(Wrappers.lambdaQuery(AssetInfo.class)
+                .eq(AssetInfo::getCategoryId, category.getId()));
+
+        // 3. 顺序号 = 当前数量 + 1，固定3位，不足补0
+        int seq = (seqCount == null ? 0 : seqCount.intValue()) + 1;
+        String seqStr = String.format("%03d", seq);
+
+        // 4. 拼接返回
+        return prefix + seqStr;
     }
     // ============================== 4-11 修改资产 ==============================
 
