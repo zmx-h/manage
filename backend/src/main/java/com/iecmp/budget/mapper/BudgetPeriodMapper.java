@@ -2,6 +2,7 @@ package com.iecmp.budget.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.iecmp.budget.entity.BudgetPeriod;
+import com.iecmp.budget.vo.AdminBudgetPeriodPageVO;
 import com.iecmp.budget.vo.BudgetPeriodDetailVO;
 import com.iecmp.budget.vo.UserBudgetPeriodPageVO;
 import org.apache.ibatis.annotations.Mapper;
@@ -39,4 +40,21 @@ public interface BudgetPeriodMapper extends BaseMapper<BudgetPeriod> {
 
     /** 3-02 预算周期详情 */
     BudgetPeriodDetailVO selectDetailById(@Param("id") Long id);
+
+    /** 3-10 管理端预算周期分页 */
+    List<AdminBudgetPeriodPageVO> selectAdminPage(@Param("keyword") String keyword,
+                                                   @Param("year") String year,
+                                                   @Param("status") Integer status,
+                                                   @Param("isPublic") Integer isPublic,
+                                                   @Param("offset") Integer offset,
+                                                   @Param("pageSize") Integer pageSize);
+
+    /** 3-10 配套总数 */
+    Long countAdminPage(@Param("keyword") String keyword,
+                         @Param("year") String year,
+                         @Param("status") Integer status,
+                         @Param("isPublic") Integer isPublic);
+
+    /** 3-22/3-24 额度扣减与回退时锁住周期行，防并发丢失更新 */
+    BudgetPeriod selectForUpdate(@Param("id") Long id);
 }

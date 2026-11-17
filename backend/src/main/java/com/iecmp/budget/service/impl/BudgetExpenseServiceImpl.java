@@ -72,14 +72,14 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BudgetExpenseCreateVO createExpense(BudgetExpenseAddDTO dto, Long currentUserId) {
-        BudgetPeriod period = budgetPeriodMapper.selectById(dto.getPeriodId());
+        BudgetPeriod period = budgetPeriodMapper.selectForUpdate(dto.getPeriodId());
         if (period == null) {
             throw new BusinessException(BudgetErrorCode.E30001.getCode(), BudgetErrorCode.E30001.getMsg());
         }
         if (period.getStatus() == 2) {
             throw new BusinessException(BudgetErrorCode.E30015.getCode(), BudgetErrorCode.E30015.getMsg());
         }
-        BudgetItem item = budgetItemMapper.selectById(dto.getItemId());
+        BudgetItem item = budgetItemMapper.selectForUpdate(dto.getItemId());
         if (item == null) {
             throw new BusinessException(BudgetErrorCode.E30003.getCode(), BudgetErrorCode.E30003.getMsg());
         }
@@ -143,11 +143,11 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
         BigDecimal amount = expense.getAmount();
         baseMapper.deleteById(id);
 
-        BudgetPeriod period = budgetPeriodMapper.selectById(expense.getPeriodId());
+        BudgetPeriod period = budgetPeriodMapper.selectForUpdate(expense.getPeriodId());
         period.setUsedAmount(period.getUsedAmount().subtract(amount));
         budgetPeriodMapper.updateById(period);
 
-        BudgetItem item = budgetItemMapper.selectById(expense.getItemId());
+        BudgetItem item = budgetItemMapper.selectForUpdate(expense.getItemId());
         item.setUsedAmount(item.getUsedAmount().subtract(amount));
         budgetItemMapper.updateById(item);
     }

@@ -3,6 +3,7 @@ package com.iecmp.budget.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import lombok.Data;
@@ -41,6 +42,7 @@ public class BudgetExpenseAddDTO implements Serializable {
     /** 支出金额，必须大于 0 */
     @Schema(description = "支出金额，必须大于 0")
     @NotNull(message = "支出金额，必须大于 0不能为空")
+    @Positive(message = "支出金额必须大于 0")
     private BigDecimal amount;
 
     /** 支出日期，格式 yyyy-MM-dd */

@@ -1,6 +1,8 @@
 package com.iecmp.budget.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import lombok.Data;
@@ -19,6 +21,8 @@ public class BudgetPeriodPublicDTO implements Serializable {
 
     /** 0 取消公示，1 公示 */
     @Schema(description = "0 取消公示，1 公示")
-    @NotNull(message = "0 取消公示，1 公示不能为空")
+    @NotNull(message = "是否公示不能为空")
+    @Min(value = 0, message = "是否公示取值只能为 0 或 1")
+    @Max(value = 1, message = "是否公示取值只能为 0 或 1")
     private Integer isPublic;
 }

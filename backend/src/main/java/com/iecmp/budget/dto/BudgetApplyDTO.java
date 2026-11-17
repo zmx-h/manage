@@ -3,6 +3,7 @@ package com.iecmp.budget.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import lombok.Data;
@@ -37,6 +38,7 @@ public class BudgetApplyDTO implements Serializable {
     /** 申请金额，最多两位小数 */
     @Schema(description = "申请金额，最多两位小数")
     @NotNull(message = "申请金额，最多两位小数不能为空")
+    @Positive(message = "申请金额必须大于 0")
     private BigDecimal amount;
 
     /** 申请事由，最长 500 字 */

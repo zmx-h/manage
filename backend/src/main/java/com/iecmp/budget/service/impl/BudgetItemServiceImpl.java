@@ -9,6 +9,7 @@ import com.iecmp.budget.entity.BudgetExpense;
 import com.iecmp.budget.entity.BudgetItem;
 import com.iecmp.budget.entity.BudgetPeriod;
 import com.iecmp.budget.enums.BudgetErrorCode;
+import com.iecmp.budget.enums.BudgetPeriodStatusEnum;
 import com.iecmp.budget.mapper.BudgetApplyMapper;
 import com.iecmp.budget.mapper.BudgetExpenseMapper;
 import com.iecmp.budget.mapper.BudgetItemMapper;
@@ -48,6 +49,9 @@ public class BudgetItemServiceImpl extends ServiceImpl<BudgetItemMapper, BudgetI
         if (period == null) {
             throw new BusinessException(BudgetErrorCode.E30001.getCode(), BudgetErrorCode.E30001.getMsg());
         }
+        if (BudgetPeriodStatusEnum.FINISHED.getValue().equals(period.getStatus())) {
+            throw new BusinessException(BudgetErrorCode.E30021.getCode(), BudgetErrorCode.E30021.getMsg());
+        }
         BudgetItem item = new BudgetItem();
         item.setPeriodId(dto.getPeriodId());
         item.setName(dto.getName());
@@ -67,6 +71,10 @@ public class BudgetItemServiceImpl extends ServiceImpl<BudgetItemMapper, BudgetI
         BudgetItem item = getById(dto.getItemId());
         if (item == null) {
             throw new BusinessException(BudgetErrorCode.E30003.getCode(), BudgetErrorCode.E30003.getMsg());
+        }
+        BudgetPeriod period = budgetPeriodMapper.selectById(item.getPeriodId());
+        if (period != null && BudgetPeriodStatusEnum.FINISHED.getValue().equals(period.getStatus())) {
+            throw new BusinessException(BudgetErrorCode.E30021.getCode(), BudgetErrorCode.E30021.getMsg());
         }
         if (dto.getBudgetAmount().compareTo(item.getUsedAmount()) < 0) {
             throw new BusinessException(BudgetErrorCode.E30017.getCode(), BudgetErrorCode.E30017.getMsg());

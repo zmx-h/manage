@@ -75,7 +75,10 @@ public enum BudgetErrorCode {
     E30019(30019, "存在待审核的申请，无法结束周期"),
 
     /** 该功能在 v1.0 未开放 */
-    E30020(30020, "该功能在 v1.0 未开放");
+    E30020(30020, "该功能在 v1.0 未开放"),
+
+    /** 该预算周期已结束，无法操作科目 */
+    E30021(30021, "该预算周期已结束，无法操作科目");
 
     private final Integer code;
     private final String msg;

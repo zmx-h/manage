@@ -69,4 +69,69 @@
           AND p.deleted = 0
     </select>
 
+    <!-- 3-10 管理端预算周期分页 -->
+    <select id="selectAdminPage" resultType="com.iecmp.budget.vo.AdminBudgetPeriodPageVO">
+        SELECT
+        p.id AS periodId,
+        p.title,
+        p.year,
+        p.total_amount AS totalAmount,
+        p.used_amount AS usedAmount,
+        (p.total_amount - p.used_amount) AS remainAmount,
+        ROUND(p.used_amount / NULLIF(p.total_amount, 0) * 100, 2) AS executionRate,
+        p.status,
+        p.is_public AS isPublic,
+        p.start_date AS startDate,
+        p.end_date AS endDate,
+        (SELECT COUNT(*) FROM budget_item i WHERE i.period_id = p.id AND i.deleted = 0) AS itemCount,
+        (SELECT COUNT(*) FROM budget_apply a WHERE a.period_id = p.id AND a.deleted = 0) AS applyCount,
+        p.create_time AS createTime
+        FROM budget_period p
+        WHERE p.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND p.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="year != null and year != ''">
+            AND p.year = #{year}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        <if test="isPublic != null">
+            AND p.is_public = #{isPublic}
+        </if>
+        ORDER BY p.create_time DESC, p.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 3-10 配套总数 -->
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM budget_period p
+        WHERE p.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND p.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="year != null and year != ''">
+            AND p.year = #{year}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        <if test="isPublic != null">
+            AND p.is_public = #{isPublic}
+        </if>
+    </select>
+
+    <!-- 3-22/3-24 锁住周期行，防并发丢失更新 -->
+    <select id="selectForUpdate" resultType="com.iecmp.budget.entity.BudgetPeriod">
+        SELECT id, title, year, total_amount, used_amount, status, start_date, end_date,
+               is_public, public_time, description, version,
+               create_by, create_time, update_by, update_time, deleted
+        FROM budget_period
+        WHERE id = #{id}
+          AND deleted = 0
+        FOR UPDATE
+    </select>
+
 </mapper>

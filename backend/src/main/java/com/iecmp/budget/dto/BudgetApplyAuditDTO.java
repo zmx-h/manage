@@ -1,6 +1,8 @@
 package com.iecmp.budget.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -20,7 +22,9 @@ public class BudgetApplyAuditDTO implements Serializable {
 
     /** 1 通过，2 驳回 */
     @Schema(description = "1 通过，2 驳回")
-    @NotNull(message = "1 通过，2 驳回不能为空")
+    @NotNull(message = "审核状态不能为空")
+    @Min(value = 1, message = "审核状态取值只能为 1（通过）或 2（驳回）")
+    @Max(value = 2, message = "审核状态取值只能为 1（通过）或 2（驳回）")
     private Integer auditStatus;
 
     /** 批准金额，通过时可少于申请金额（部分批准） */
