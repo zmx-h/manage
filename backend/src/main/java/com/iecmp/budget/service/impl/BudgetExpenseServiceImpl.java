@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -39,6 +40,7 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
         implements BudgetExpenseService {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999999.99");
     private final BudgetPeriodMapper budgetPeriodMapper;
     private final BudgetItemMapper budgetItemMapper;
     private final BudgetApplyMapper budgetApplyMapper;
@@ -107,35 +109,57 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BudgetExpenseCreateVO createExpense(BudgetExpenseAddDTO dto, Long currentUserId) {
-        BudgetPeriod period = budgetPeriodMapper.selectById(dto.getPeriodId());
+        BudgetPeriod period = budgetPeriodMapper.selectForUpdate(dto.getPeriodId());
         if (period == null) {
             throw new BusinessException(BudgetErrorCode.E30001.getCode(), BudgetErrorCode.E30001.getMsg());
         }
         if (period.getStatus() == 2) {
             throw new BusinessException(BudgetErrorCode.E30015.getCode(), BudgetErrorCode.E30015.getMsg());
         }
-        BudgetItem item = budgetItemMapper.selectById(dto.getItemId());
+        BudgetItem item = budgetItemMapper.selectForUpdate(dto.getItemId());
         if (item == null) {
             throw new BusinessException(BudgetErrorCode.E30003.getCode(), BudgetErrorCode.E30003.getMsg());
         }
-        if (!item.getPeriodId().equals(period.getId())) {
+        if (item.getPeriodId() == null || !item.getPeriodId().equals(period.getId())) {
             throw new BusinessException(BudgetErrorCode.E30004.getCode(), BudgetErrorCode.E30004.getMsg());
         }
+        BigDecimal amount = dto.getAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(BudgetErrorCode.E30011.getCode(), BudgetErrorCode.E30011.getMsg());
+        }
+        if (amount.compareTo(MAX_AMOUNT) > 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "支出金额不能超过 " + MAX_AMOUNT);
+        }
+        if (amount.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "支出金额最多保留 2 位小数");
+        }
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
+
         if (dto.getApplyId() != null) {
             BudgetApply apply = budgetApplyMapper.selectById(dto.getApplyId());
             if (apply == null) {
                 throw new BusinessException(BudgetErrorCode.E30007.getCode(), BudgetErrorCode.E30007.getMsg());
             }
+            if (!period.getId().equals(apply.getPeriodId()) || !item.getId().equals(apply.getItemId())) {
+                throw new BusinessException(BudgetErrorCode.E30028.getCode(), BudgetErrorCode.E30028.getMsg());
+            }
+            if (apply.getStatus() == null || apply.getStatus() != 1) {
+                throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "关联的预算申请未通过审核，无法登记支出");
+            }
+            BigDecimal approved = apply.getApprovedAmount() != null ? apply.getApprovedAmount() : apply.getAmount();
+            BigDecimal registered = baseMapper.selectExpenseAmountByApplyId(dto.getApplyId());
+            BigDecimal available = amountOrZero(approved).subtract(amountOrZero(registered));
+            if (amount.compareTo(available) > 0) {
+                throw new BusinessException(BudgetErrorCode.E30025.getCode(), BudgetErrorCode.E30025.getMsg());
+            }
         }
-        BigDecimal amount = dto.getAmount();
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException(BudgetErrorCode.E30011.getCode(), BudgetErrorCode.E30011.getMsg());
-        }
-        BigDecimal periodRemain = period.getTotalAmount().subtract(period.getUsedAmount());
+        BigDecimal periodRemain = amountOrZero(period.getTotalAmount())
+                .subtract(amountOrZero(period.getUsedAmount())).max(BigDecimal.ZERO);
         if (amount.compareTo(periodRemain) > 0) {
             throw new BusinessException(BudgetErrorCode.E30011.getCode(), BudgetErrorCode.E30011.getMsg());
         }
-        BigDecimal itemRemain = item.getBudgetAmount().subtract(item.getUsedAmount());
+        BigDecimal itemRemain = amountOrZero(item.getBudgetAmount())
+                .subtract(amountOrZero(item.getUsedAmount())).max(BigDecimal.ZERO);
         if (amount.compareTo(itemRemain) > 0) {
             throw new BusinessException(BudgetErrorCode.E30011.getCode(), BudgetErrorCode.E30011.getMsg());
         }
@@ -146,19 +170,19 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
         expense.setTitle(dto.getTitle());
         expense.setAmount(amount);
         try {
-            expense.setExpenseDate(LocalDate.parse(dto.getExpenseDate()));
+            expense.setExpenseDate(LocalDate.parse(dto.getExpenseDate().trim()));
         } catch (DateTimeParseException e) {
-            throw new BusinessException(400, "日期格式错误");
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "支出日期格式错误，应为 yyyy-MM-dd");
         }
         expense.setVoucherFileId(dto.getVoucherFileId());
         expense.setRemark(dto.getRemark());
         expense.setHandlerId(currentUserId);
         baseMapper.insert(expense);
 
-        period.setUsedAmount(period.getUsedAmount().add(amount));
+        period.setUsedAmount(amountOrZero(period.getUsedAmount()).add(amount));
         budgetPeriodMapper.updateById(period);
 
-        item.setUsedAmount(item.getUsedAmount().add(amount));
+        item.setUsedAmount(amountOrZero(item.getUsedAmount()).add(amount));
         budgetItemMapper.updateById(item);
 
         BudgetExpenseCreateVO vo = new BudgetExpenseCreateVO();
@@ -179,11 +203,19 @@ public class BudgetExpenseServiceImpl extends ServiceImpl<BudgetExpenseMapper, B
         baseMapper.deleteById(id);
 
         BudgetPeriod period = budgetPeriodMapper.selectById(expense.getPeriodId());
-        period.setUsedAmount(period.getUsedAmount().subtract(amount));
-        budgetPeriodMapper.updateById(period);
+        if (period != null) {
+            period.setUsedAmount(amountOrZero(period.getUsedAmount()).subtract(amount).max(BigDecimal.ZERO));
+            budgetPeriodMapper.updateById(period);
+        }
 
         BudgetItem item = budgetItemMapper.selectById(expense.getItemId());
-        item.setUsedAmount(item.getUsedAmount().subtract(amount));
-        budgetItemMapper.updateById(item);
+        if (item != null) {
+            item.setUsedAmount(amountOrZero(item.getUsedAmount()).subtract(amount).max(BigDecimal.ZERO));
+            budgetItemMapper.updateById(item);
+        }
+    }
+
+    private static BigDecimal amountOrZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

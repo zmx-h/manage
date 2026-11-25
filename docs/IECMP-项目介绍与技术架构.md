@@ -577,7 +577,6 @@ graph LR
 | `iecmp:captcha:{captchaKey}` | String | 300 秒 | 图形验证码 | 一次性使用后立即删除 |
 | `iecmp:dict:{dictType}` | String(JSON) | 1 小时 | 数据字典缓存 | 枚举变更时后端主动删除 |
 | `iecmp:login:fail:{username}` | String(计数) | 600 秒 | 登录失败锁定 | 登录成功后清零 |
-| `iecmp:limit:register:{ip}` | String(计数) | 3600 秒 | 注册申请同 IP 限流（3 次/小时） | 自然过期 |
 | `iecmp:limit:captcha:{ip}` | String(计数) | 60 秒 | 验证码同 IP 限流（10 次/分钟） | 自然过期 |
 
 **设计原则**
@@ -671,12 +670,12 @@ graph LR
 
 | 场景 | 限制 | 返回码 |
 | --- | --- | --- |
-| 注册申请 | 需图形验证码；同 IP 每小时最多 3 次 | 10030 |
+| 招新报名 | 同 IP 每小时最多 5 次 | 10030 |
 | 图形验证码获取 | 同 IP 每分钟最多 10 次 | 429 |
 | 登录 | 同账号 5 分钟失败 5 次锁定 10 分钟 | 10005 |
 | 仓库同步 | 按仓库维度限流，避免触发第三方平台风控 | - |
 
-**邀请码防滥用**：邀请码一次性使用、可设有效期，使用后立即失效；同一学号全局唯一，重复提交**覆盖旧申请**而不新增记录（防止刷量）。
+**邀请码防滥用**：邀请码一次性使用、可设有效期，使用后立即失效；同一学号全局唯一，注册成功后不可重复使用同一邀请码。
 
 ### 5.4 越权与数据隔离
 
@@ -821,7 +820,7 @@ graph TB
 | `iecmp.recruit.code-expire-hours` | `24` | 注册码有效期（小时） |
 | `iecmp.recruit.mail-enabled` | `1` | 1 真实发信；0 只写日志（本地联调用） |
 | `iecmp.recruit.code-pepper` | 32 位以上随机串 | 注册码 HMAC 密钥，生产必须通过 `RECRUIT_CODE_PEPPER` 注入且不可更换 |
-| `iecmp.register.invite-enabled` / `apply-enabled` | `1` / `0` | 邀请码注册 / 注册申请开关（接口 1-22） |
+| `iecmp.register.invite-enabled` | `1` | 邀请码注册开关（接口 1-22） |
 | `iecmp.cors.allowed-origins` | `https://iecmp.example.com` | 允许的前端来源，逗号分隔；外部招新网页的域名也要加进来 |
 
 ### 7.4 常见故障排查

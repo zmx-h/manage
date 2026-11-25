@@ -1217,7 +1217,7 @@
     "path": "/common/register/config",
     "method": "get",
     "permission": "无（公开接口）",
-    "description": "返回当前开放的注册通道与提示文案，供注册页决定展示「邀请码注册」「申请入驻」还是「招新码注册」表单",
+    "description": "返回当前开放的注册通道与提示文案，供注册页选择「邀请码注册」或「招新码注册」",
     "auth": false,
     "fields": [],
     "returns": [
@@ -1225,11 +1225,6 @@
         "key": "inviteEnabled",
         "type": "integer",
         "description": "必须；-；1 开启邀请码注册，0 关闭；format: int32"
-      },
-      {
-        "key": "applyEnabled",
-        "type": "integer",
-        "description": "必须；-；1 开启注册申请，0 关闭；format: int32"
       },
       {
         "key": "captchaEnabled",
@@ -1350,240 +1345,6 @@
         "key": "username",
         "type": "string",
         "description": "必须；-；登录账号；-"
-      }
-    ]
-  },
-  "1-24": {
-    "id": "1-24",
-    "name": "提交注册申请",
-    "path": "/common/register/apply",
-    "method": "post",
-    "permission": "无（公开接口）",
-    "description": "无邀请码时提交入驻申请，由管理员审核；同一学号重复提交将覆盖旧申请",
-    "auth": false,
-    "fields": [
-      {
-        "key": "realName",
-        "type": "string",
-        "required": true,
-        "location": "body",
-        "parent": null,
-        "description": "-；真实姓名；-"
-      },
-      {
-        "key": "studentNo",
-        "type": "string",
-        "required": true,
-        "location": "body",
-        "parent": null,
-        "description": "-；学号；-"
-      },
-      {
-        "key": "major",
-        "type": "string",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "-；专业；-"
-      },
-      {
-        "key": "phone",
-        "type": "string",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "-；手机号；-"
-      },
-      {
-        "key": "reason",
-        "type": "string",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "-；申请理由，最长 200 字；-"
-      },
-      {
-        "key": "captchaKey",
-        "type": "string",
-        "required": true,
-        "location": "body",
-        "parent": null,
-        "description": "-；验证码标识；-"
-      },
-      {
-        "key": "captchaCode",
-        "type": "string",
-        "required": true,
-        "location": "body",
-        "parent": null,
-        "description": "-；验证码内容；-"
-      }
-    ],
-    "returns": [
-      {
-        "key": "applyId",
-        "type": "integer",
-        "description": "必须；-；申请记录 ID；format: int64"
-      }
-    ]
-  },
-  "1-25": {
-    "id": "1-25",
-    "name": "注册申请分页",
-    "path": "/admin/register/apply/page",
-    "method": "get",
-    "permission": "system:register:list",
-    "description": "分页查询注册申请，支持按状态与时间筛选",
-    "auth": true,
-    "fields": [
-      {
-        "key": "status",
-        "type": "integer",
-        "required": false,
-        "location": "query",
-        "parent": null,
-        "description": "-；0 待审核，1 已通过，2 已驳回；format: int32"
-      },
-      {
-        "key": "beginTime",
-        "type": "string",
-        "required": false,
-        "location": "query",
-        "parent": null,
-        "description": "-；申请时间起；-"
-      },
-      {
-        "key": "endTime",
-        "type": "string",
-        "required": false,
-        "location": "query",
-        "parent": null,
-        "description": "-；申请时间止；-"
-      }
-    ],
-    "returns": [
-      {
-        "key": "applyId",
-        "type": "integer",
-        "description": "必须；-；申请 ID；format: int64"
-      },
-      {
-        "key": "realName",
-        "type": "string",
-        "description": "必须；-；姓名；-"
-      },
-      {
-        "key": "studentNo",
-        "type": "string",
-        "description": "必须；-；学号；-"
-      },
-      {
-        "key": "major",
-        "type": "string",
-        "description": "非必须；-；专业；-"
-      },
-      {
-        "key": "phone",
-        "type": "string",
-        "description": "非必须；-；手机号；-"
-      },
-      {
-        "key": "reason",
-        "type": "string",
-        "description": "非必须；-；申请理由；-"
-      },
-      {
-        "key": "status",
-        "type": "integer",
-        "description": "必须；-；0 待审核，1 已通过，2 已驳回；format: int32"
-      },
-      {
-        "key": "ip",
-        "type": "string",
-        "description": "非必须；-；提交 IP，便于识别恶意申请；-"
-      },
-      {
-        "key": "applyTime",
-        "type": "string",
-        "description": "必须；-；提交时间；-"
-      },
-      {
-        "key": "auditRemark",
-        "type": "string",
-        "description": "非必须；-；审核意见；-"
-      },
-      {
-        "key": "createUserId",
-        "type": "integer",
-        "description": "非必须；-；通过后生成的用户 ID；format: int64"
-      }
-    ]
-  },
-  "1-26": {
-    "id": "1-26",
-    "name": "注册申请审核",
-    "path": "/admin/register/apply/{id}/audit",
-    "method": "put",
-    "permission": "system:register:audit",
-    "description": "审核注册申请；通过时自动创建账号、分配角色并返回初始密码",
-    "auth": true,
-    "fields": [
-      {
-        "key": "id",
-        "type": "integer",
-        "required": true,
-        "location": "path",
-        "parent": null,
-        "description": "申请 ID；5"
-      },
-      {
-        "key": "auditStatus",
-        "type": "integer",
-        "required": true,
-        "location": "body",
-        "parent": null,
-        "description": "-；1 通过，2 驳回；format: int32"
-      },
-      {
-        "key": "roleIds",
-        "type": "array",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "成员角色；通过时生效，分配的角色 ID 列表；-"
-      },
-      {
-        "key": "username",
-        "type": "string",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "学号；通过时可自定义登录账号；-"
-      },
-      {
-        "key": "auditRemark",
-        "type": "string",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "-；审核意见，驳回时建议填写；-"
-      }
-    ],
-    "returns": [
-      {
-        "key": "userId",
-        "type": "integer",
-        "description": "非必须；-；通过时生成的用户 ID；format: int64"
-      },
-      {
-        "key": "username",
-        "type": "string",
-        "description": "非必须；-；通过时生成的登录账号；-"
-      },
-      {
-        "key": "initialPassword",
-        "type": "string",
-        "description": "非必须；-；初始密码，仅审核通过时返回一次；-"
       }
     ]
   },
@@ -11877,7 +11638,7 @@
     "path": "/common/captcha",
     "method": "get",
     "permission": "无（公开接口）",
-    "description": "获取图形验证码，用于登录与注册申请，防机器提交",
+    "description": "获取图形验证码，用于登录与注册，防机器提交",
     "auth": false,
     "fields": [],
     "returns": [
@@ -12323,7 +12084,7 @@
       {
         "key": "pendingTodo",
         "type": "object",
-        "description": "必须；-；待办数量聚合，含 budgetApply、assetBorrow、seatApply、seatSwap、honorAudit、registerApply；-"
+        "description": "必须；-；待办数量聚合，含 budgetApply、assetBorrow、seatApply、seatSwap、honorAudit；-"
       }
     ]
   },

@@ -71,4 +71,15 @@
           AND p.status &lt;&gt; 0
     </select>
 
+    <!-- 提交申请 / 登记支出时锁住周期行，防并发超支 -->
+    <select id="selectForUpdate" resultType="com.iecmp.budget.entity.BudgetPeriod">
+        SELECT id, title, year, total_amount, used_amount, status, start_date, end_date,
+               is_public, public_time, description, version,
+               create_by, create_time, update_by, update_time, deleted
+        FROM budget_period
+        WHERE id = #{id}
+          AND deleted = 0
+        FOR UPDATE
+    </select>
+
 </mapper>

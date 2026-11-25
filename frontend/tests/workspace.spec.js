@@ -9,15 +9,15 @@ async function mock(page, handlers = {}) {
   await page.route('http://127.0.0.1:5173/api/**', async route => {
     const url = new URL(route.request().url()); const path = url.pathname.replace(/^\/api/,'')
     if (handlers[path]) return handlers[path](route)
-    const defaults = {'/user/info':account,'/common/register/config':{inviteEnabled:1,applyEnabled:0,captchaEnabled:0},'/user/message/unread/count':{total:0},'/admin/stat/dashboard':{userCount:0,assetStat:{total:0},budgetStat:{totalAmount:100,usedAmount:0,executionRate:0},pendingTodo:{},todayDuty:[],repoCommitCountThisMonth:0}}
+    const defaults = {'/user/info':account,'/common/register/config':{inviteEnabled:1,captchaEnabled:0},'/user/message/unread/count':{total:0},'/admin/stat/dashboard':{userCount:0,assetStat:{total:0},budgetStat:{totalAmount:100,usedAmount:0,executionRate:0},pendingTodo:{},todayDuty:[],repoCommitCountThisMonth:0}}
     const data = path in defaults ? defaults[path] : /\/dict\//.test(path) ? [{label:'待审核',value:0},{label:'已通过',value:1},{label:'已驳回',value:2}] : path.endsWith('/page') ? {total:0,pageNum:1,pageSize:10,pages:0,list:[]} : []
     return route.fulfill({json:ok(data)})
   })
 }
 async function authenticate(page) { await page.addInitScript(() => { localStorage.setItem('iecmp_access_token','test-access'); localStorage.setItem('iecmp_refresh_token','test-refresh') }) }
 
-test('contracts match all 192 documented endpoints without nested fields at root', async () => {
-  expect(Object.keys(contracts)).toHaveLength(192)
+test('contracts match all 189 documented endpoints without nested fields at root', async () => {
+  expect(Object.keys(contracts)).toHaveLength(189)
   expect(pages).toHaveLength(44)
   for (const page of pages) for (const id of [page.api,...page.create,...page.actions]) expect(contracts[id],`${page.key}: ${id}`).toBeTruthy()
   expect(contracts['5-13'].fields.find(f=>f.key==='seatId').parent).toBe('seats')

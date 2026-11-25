@@ -136,36 +136,7 @@ CREATE TABLE `sys_invite_code` (
   KEY `idx_status_expire` (`status`, `expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册邀请码表';
 
--- ---- 3.1.6 `sys_register_apply` 注册申请表 ----
-
-DROP TABLE IF EXISTS `sys_register_apply`;
-CREATE TABLE `sys_register_apply` (
-  `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `student_no`     VARCHAR(20)  NOT NULL                COMMENT '学号，全局唯一',
-  `real_name`      VARCHAR(32)  NOT NULL                COMMENT '真实姓名',
-  `major`          VARCHAR(50)           DEFAULT NULL   COMMENT '专业',
-  `phone`          VARCHAR(20)           DEFAULT NULL   COMMENT '手机号',
-  `reason`         VARCHAR(200)          DEFAULT NULL   COMMENT '申请理由，最长 200 字',
-  `status`         TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0 待审核 1 已通过 2 已驳回',
-  `audit_user_id`  BIGINT                DEFAULT NULL   COMMENT '审核人 ID',
-  `audit_time`     DATETIME              DEFAULT NULL   COMMENT '审核时间',
-  `audit_remark`   VARCHAR(255)          DEFAULT NULL   COMMENT '审核意见',
-  `create_user_id` BIGINT                DEFAULT NULL   COMMENT '通过后生成的用户 ID',
-  `ip`             VARCHAR(64)           DEFAULT NULL   COMMENT '提交来源 IP',
-  `apply_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
-  `create_by`      BIGINT                DEFAULT NULL   COMMENT '创建人 ID',
-  `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_by`      BIGINT                DEFAULT NULL   COMMENT '更新人 ID',
-  `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `deleted`        BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_student_no` (`student_no`, `deleted`),
-  KEY `idx_status` (`status`),
-  KEY `idx_apply_time` (`apply_time`),
-  KEY `idx_ip` (`ip`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册申请表';
-
--- ---- 3.1.7 `sys_recruit_apply` 招新报名表 ----
+-- ---- 3.1.6 `sys_recruit_apply` 招新报名表 ----
 
 DROP TABLE IF EXISTS `sys_recruit_apply`;
 CREATE TABLE `sys_recruit_apply` (

@@ -237,7 +237,23 @@ async function submit() {
     for (const f of fields.value) {
       const value = payload[f.key]
       if (f.required && /^(title|name|realName|username|password)$/.test(f.key) && typeof value === 'string' && !value.trim()) throw new Error(t('required'))
-      if (/^(amount|totalAmount|budgetAmount|approvedAmount|price)$/.test(f.key) && value !== undefined && value < 0) throw new Error(pair('金额不能为负数','Amounts cannot be negative'))
+      if (/^(amount|totalAmount|budgetAmount)$/.test(f.key) && value !== undefined && value !== null && value !== '') {
+        const amount = Number(value)
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error(pair('金额必须大于 0','Amount must be greater than 0'))
+        if (amount > 9999999999.99) throw new Error(pair('金额不能超过 9999999999.99','Amount must not exceed 9999999999.99'))
+        if (!/^\d+(\.\d{1,2})?$/.test(String(value))) throw new Error(pair('金额最多保留两位小数','Amount allows at most 2 decimal places'))
+      }
+      if (f.key === 'approvedAmount' && value !== undefined && value !== null && value !== '') {
+        const approved = Number(value)
+        if (!Number.isFinite(approved) || approved < 0) throw new Error(pair('批准金额不能为负数','Approved amount cannot be negative'))
+        if (approved > 9999999999.99) throw new Error(pair('批准金额不能超过 9999999999.99','Approved amount must not exceed 9999999999.99'))
+        if (!/^\d+(\.\d{1,2})?$/.test(String(value))) throw new Error(pair('批准金额最多保留两位小数','Approved amount allows at most 2 decimal places'))
+      }
+      if (f.key === 'price' && value !== undefined && value !== null && value !== '' && Number(value) < 0) throw new Error(pair('金额不能为负数','Amounts cannot be negative'))
+      if (f.key === 'year' && value !== undefined && value !== null && String(value).trim() !== '') {
+        const year = String(value).trim()
+        if (!/^\d{4}$/.test(year) || Number(year) < 2000 || Number(year) > 2100) throw new Error(pair('年份需为 2000 ~ 2100 的四位数字','Year must be a 4-digit number between 2000 and 2100'))
+      }
     }
     if (contract.value.id === '1-07' && (payload.newPassword !== payload.confirmPassword || !/^(?=.*[A-Za-z])(?=.*\d).{6,32}$/.test(payload.newPassword || ''))) throw new Error(t('passwordHint'))
     if (payload.planType === 2 && (!Array.isArray(payload.groupConfig) || !payload.groupConfig.length)) throw new Error(pair('分组轮转需至少配置一个分组', 'Add at least one group for group rotation'))

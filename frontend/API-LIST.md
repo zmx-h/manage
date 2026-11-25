@@ -1,6 +1,6 @@
 # 前端接口调用清单（骨架）
 
-> 由 `docs/IECMP-接口开发文档-v1.6.md` 生成，共 192 个接口。
+> 由 `docs/IECMP-接口开发文档-v1.6.md` 生成，共 189 个接口。
 > 前端按模块在 `src/api/*.js` 中实现调用，本表用于对照进度。
 
 ## 模块一 · 用户与权限（`src/api/auth.js`）
@@ -30,9 +30,6 @@
 | 1-21 | GET | `/admin/permission/tree` | 权限码树 | - |
 | 1-22 | GET | `/common/register/config` | 注册方式配置查询 | - |
 | 1-23 | POST | `/user/register` | 邀请码注册 | - |
-| 1-24 | POST | `/common/register/apply` | 提交注册申请 | - |
-| 1-25 | GET | `/admin/register/apply/page` | 注册申请分页 | system:register:list |
-| 1-26 | PUT | `/admin/register/apply/{id}/audit` | 注册申请审核 | system:register:audit |
 | 1-27 | GET | `/admin/invite-code/page` | 邀请码分页 | system:invite:list |
 | 1-28 | POST | `/admin/invite-code` | 生成邀请码 | system:invite:add |
 | 1-29 | DELETE | `/admin/invite-code/{id}` | 作废邀请码 | system:invite:remove |

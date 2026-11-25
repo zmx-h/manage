@@ -1,8 +1,12 @@
 package com.iecmp.budget.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import lombok.Data;
@@ -36,16 +40,20 @@ public class BudgetExpenseAddDTO implements Serializable {
     /** 支出标题，最长 100 字 */
     @Schema(description = "支出标题，最长 100 字")
     @NotBlank(message = "支出标题，最长 100 字不能为空")
+    @Size(max = 100, message = "支出标题最长 100 字")
     private String title;
 
     /** 支出金额，必须大于 0 */
     @Schema(description = "支出金额，必须大于 0")
     @NotNull(message = "支出金额，必须大于 0不能为空")
+    @DecimalMin(value = "0.01", message = "支出金额必须大于 0")
+    @Digits(integer = 10, fraction = 2, message = "支出金额最多 10 位整数、2 位小数")
     private BigDecimal amount;
 
     /** 支出日期，格式 yyyy-MM-dd */
     @Schema(description = "支出日期，格式 yyyy-MM-dd")
     @NotBlank(message = "支出日期，格式 yyyy-MM-dd不能为空")
+    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "支出日期格式应为 yyyy-MM-dd")
     private String expenseDate;
 
     /** 凭证文件 ID（发票 / 收据），先调接口 8-01 上传 */
@@ -54,5 +62,6 @@ public class BudgetExpenseAddDTO implements Serializable {
 
     /** 备注 */
     @Schema(description = "备注")
+    @Size(max = 500, message = "备注最长 500 字")
     private String remark;
 }

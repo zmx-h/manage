@@ -41,4 +41,7 @@ public interface BudgetPeriodMapper extends BaseMapper<BudgetPeriod> {
 
     /** 3-02 预算周期详情 */
     BudgetPeriodDetailVO selectDetailById(@Param("id") Long id);
+
+    /** 提交申请 / 登记支出时锁住周期，校验剩余额度 */
+    BudgetPeriod selectForUpdate(@Param("id") Long id);
 }

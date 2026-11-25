@@ -66,21 +66,6 @@
     "permission": "登录即可"
   },
   {
-    "key": "admin-system-register",
-    "path": "/admin/system/register",
-    "side": "admin",
-    "title": "注册申请",
-    "en": "Membership requests",
-    "api": "1-25",
-    "create": [],
-    "actions": [
-      "1-26"
-    ],
-    "icon": "users",
-    "group": "members",
-    "permission": "system:register:list"
-  },
-  {
     "key": "admin-system-invite",
     "path": "/admin/system/invite",
     "side": "admin",

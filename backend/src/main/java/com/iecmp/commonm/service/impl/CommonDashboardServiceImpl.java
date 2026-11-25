@@ -197,7 +197,6 @@ public class CommonDashboardServiceImpl implements CommonDashboardService {
         todo.setSeatApply(intValue("SELECT COUNT(*) FROM seat_apply WHERE status = 0 AND deleted = 0"));
         todo.setSeatSwap(intValue("SELECT COUNT(*) FROM seat_swap WHERE status IN (0, 1) AND deleted = 0"));
         todo.setHonorAudit(intValue("SELECT COUNT(*) FROM honor_alumni WHERE status = 0 AND deleted = 0"));
-        todo.setRegisterApply(intValue("SELECT COUNT(*) FROM sys_register_apply WHERE status = 0 AND deleted = 0"));
         return todo;
     }
 

@@ -164,4 +164,12 @@
         ORDER BY month
     </select>
 
+    <!-- 汇总某申请已登记的支出金额 -->
+    <select id="selectExpenseAmountByApplyId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(e.amount), 0)
+        FROM budget_expense e
+        WHERE e.apply_id = #{applyId}
+          AND e.deleted = 0
+    </select>
+
 </mapper>

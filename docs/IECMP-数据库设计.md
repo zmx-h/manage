@@ -4,13 +4,13 @@
 | --- | --- |
 | 系统名称 | IECMP（Innovation & Entrepreneurship Center Management Platform）创业中心管理平台 |
 | 文档名称 | 数据库设计 |
-| 文档版本 | V1.3 |
+| 文档版本 | V1.4 |
 | 编写日期 | 2026-09-22 |
 | 编写人员 | 后端组 |
 | 数据库 | MySQL 8.0+ |
 | 存储引擎 | InnoDB |
 | 字符集 / 排序规则 | `utf8mb4` / `utf8mb4_general_ci` |
-| 表数量 | **37 张**（业务表 35 张 + 补充表 2 张） |
+| 表数量 | **36 张**（业务表 34 张 + 补充表 2 张） |
 | 关联文档 | 《IECMP-项目介绍与技术架构.md》《IECMP-接口开发文档-v1.6.md》 |
 
 ## 修订记录
@@ -21,6 +21,7 @@
 | 2026-09-24 | V1.2 | **索引与逻辑删除关键修正**：① `deleted` 由 `TINYINT` 改为 `BIGINT`，并让 `deleted` 参与全部 18 个唯一索引，解决「唯一索引 + 逻辑删除」导致的二次删除 / 重复授权必然冲突的问题（详见 1.5 节）；② 补 `seat_apply.assign_seat_id`（审核通过时改派其他工位）、`budget_apply.approved_amount`（部分批准金额）；③ 补权限码 `seat:seat:list`（接口 `5-25` 依赖，缺失会导致超管 403），权限码总数 84 → 85；④ 清理 11 处冗余 / 低效索引，新增 5 处联合索引；⑤ 数据字典补齐 4 类共 13 条（`msgType`、`dutySwapStatus`、`registerApplyStatus`、`noticeStatus`），总数 19 类 78 条 → 23 类 91 条；⑥ 初始数据脚本统一 `INSERT IGNORE` 实现可重复执行；⑦ 交付两个 SQL 脚本文件（`IECMP-数据库建表脚本.sql`、`IECMP-初始数据.sql`），并新增 5.5.1 节记录真机实测结论（MySQL 8.0.44、20 万行提交 / 10 万条消息，核心查询均命中预期索引）、3.2.3 节补「提交查询必须带 `project_id`」的写法提示 | 后端组 |
 | 2026-09-24 | V1.1 | 与接口文档 V1.4 对齐：`repo_account` 新增 `sync_status`（0 未采集 / 1 采集中 / 2 采集正常 / 3 采集失败），`repo_project.sync_status` 注释与接口文档统一为「采集」口径，`repo_sync_log.sync_type` 注释改为「1 定时自动 2 管理员手动补采」；表数量不变（仍 36 张），无新增表 | 后端组 |
 | 2026-11-25 | V1.3 | 新增**招新报名表** `sys_recruit_apply`（外部招新网页报名 → 管理员录入一轮成绩 → 邮箱注册码注册），`sys_user` 补 `class_name`；权限码 85 → 88（`system:recruit:list` / `assess` / `send`），数据字典 23 类 91 条 → 24 类 97 条；表数量 36 → 37 | 后端组 |
+| 2026-11-25 | V1.4 | **下线入驻申请通道**：删除 `sys_register_apply` 表、`system:register:list` / `system:register:audit` 权限码与 `registerApplyStatus` 字典；权限码 88 → 86，数据字典 24 类 97 条 → 23 类 94 条；表数量 37 → 36 | 后端组 |
 
 > **文档定位**：本文档是表结构的**唯一权威来源**。DDL 与本文档不一致时，以本文档为准。表结构变更须更新本文档并登记修订记录。
 >
@@ -130,7 +131,6 @@
 | 各表的 `audit_user_id`（审核人） | 现有接口只按「状态」筛选待审核列表，**没有按审核人反查**的场景 | 需要「我审核过的记录」这类功能时 |
 | `asset_inventory_item.check_user_id` | 盘点明细按盘点任务与资产查询，不按盘点人查 | 需要「某人盘过哪些资产」时 |
 | `asset_record.from_user_id` / `to_user_id` | 流水按资产与时间查询 | 需要「某人经手过哪些资产」时 |
-| `sys_register_apply.audit_user_id` / `create_user_id` | 申请列表按状态与时间查询 | 需要按审核人统计时 |
 | `seat_apply.audit_user_id`、`honor_alumni.audit_user_id` | 同上 | 同上 |
 
 > 与此形成对照：**有明确查询路径的关联字段一律建了索引**。例如 `budget_apply.attach_file_id` 与 `budget_expense.voucher_file_id`——接口 `8-03 文件删除` 需要检查「该文件是否仍被业务引用」，这是按文件 ID 反查业务表；`duty_swap.target_schedule_id`——换班生效要按目标条目 ID 定位；`seat_swap.apply_seat_id` / `target_seat_id`——审核通过要按工位 ID 校验占用状态。这类字段建索引是**必须**的，不能省。
@@ -210,38 +210,37 @@ public class DutyPlan {
 | 3 | `sys_user_role` | 用户角色关联表 | 模块一 |
 | 4 | `sys_role_permission` | 角色权限关联表 | 模块一 |
 | 5 | `sys_invite_code` | 注册邀请码表 | 模块一 |
-| 6 | `sys_register_apply` | 注册申请表 | 模块一 |
-| 7 | `sys_recruit_apply` | 招新报名表 | 模块一 |
-| 8 | `repo_account` | 托管账户表 | 模块二 |
-| 9 | `repo_project` | 仓库表 | 模块二 |
-| 10 | `repo_commit` | 提交记录表 | 模块二 |
-| 11 | `repo_sync_log` | 同步日志表 | 模块二 |
-| 12 | `budget_period` | 预算周期表 | 模块三 |
-| 13 | `budget_item` | 预算科目表 | 模块三 |
-| 14 | `budget_apply` | 预算申请表 | 模块三 |
-| 15 | `budget_expense` | 支出记录表 | 模块三 |
-| 16 | `asset_category` | 资产分类表 | 模块四 |
-| 17 | `asset_info` | 资产台账表 | 模块四 |
-| 18 | `asset_borrow` | 借用/领用表 | 模块四 |
-| 19 | `asset_record` | 资产变动流水表 | 模块四 |
-| 20 | `asset_inventory` | 盘点任务表 | 模块四 |
-| 21 | `asset_inventory_item` | 盘点明细表 | 模块四 |
-| 22 | `seat_area` | 工位区域表 | 模块五 |
-| 23 | `seat_info` | 工位表 | 模块五 |
-| 24 | `seat_apply` | 工位申请表 | 模块五 |
-| 25 | `seat_swap` | 座位调换申请表 | 模块五 |
-| 26 | `honor_alumni` | 学长学姐信息表 | 模块六 |
-| 27 | `honor_record` | 荣誉记录表 | 模块六 |
-| 28 | `duty_plan` | 排班计划表 | 模块七 |
-| 29 | `duty_schedule` | 值日安排表 | 模块七 |
-| 30 | `duty_swap` | 换班申请表 | 模块七 |
-| 31 | `duty_reminder_config` | 提醒配置表 | 模块七 |
-| 32 | `sys_file` | 文件表 | 模块八 |
-| 33 | `sys_notice` | 公告表 | 模块八 |
-| 34 | `sys_oper_log` | 操作日志表 | 模块八 |
-| 35 | `sys_video` | 视频资源表 | 模块八 |
-| 36 | `sys_dict` | 数据字典表 | 模块八（**补充**） |
-| 37 | `sys_message` | 站内消息表 | 模块八（**补充**） |
+| 6 | `sys_recruit_apply` | 招新报名表 | 模块一 |
+| 7 | `repo_account` | 托管账户表 | 模块二 |
+| 8 | `repo_project` | 仓库表 | 模块二 |
+| 9 | `repo_commit` | 提交记录表 | 模块二 |
+| 10 | `repo_sync_log` | 同步日志表 | 模块二 |
+| 11 | `budget_period` | 预算周期表 | 模块三 |
+| 12 | `budget_item` | 预算科目表 | 模块三 |
+| 13 | `budget_apply` | 预算申请表 | 模块三 |
+| 14 | `budget_expense` | 支出记录表 | 模块三 |
+| 15 | `asset_category` | 资产分类表 | 模块四 |
+| 16 | `asset_info` | 资产台账表 | 模块四 |
+| 17 | `asset_borrow` | 借用/领用表 | 模块四 |
+| 18 | `asset_record` | 资产变动流水表 | 模块四 |
+| 19 | `asset_inventory` | 盘点任务表 | 模块四 |
+| 20 | `asset_inventory_item` | 盘点明细表 | 模块四 |
+| 21 | `seat_area` | 工位区域表 | 模块五 |
+| 22 | `seat_info` | 工位表 | 模块五 |
+| 23 | `seat_apply` | 工位申请表 | 模块五 |
+| 24 | `seat_swap` | 座位调换申请表 | 模块五 |
+| 25 | `honor_alumni` | 学长学姐信息表 | 模块六 |
+| 26 | `honor_record` | 荣誉记录表 | 模块六 |
+| 27 | `duty_plan` | 排班计划表 | 模块七 |
+| 28 | `duty_schedule` | 值日安排表 | 模块七 |
+| 29 | `duty_swap` | 换班申请表 | 模块七 |
+| 30 | `duty_reminder_config` | 提醒配置表 | 模块七 |
+| 31 | `sys_file` | 文件表 | 模块八 |
+| 32 | `sys_notice` | 公告表 | 模块八 |
+| 33 | `sys_oper_log` | 操作日志表 | 模块八 |
+| 34 | `sys_video` | 视频资源表 | 模块八 |
+| 35 | `sys_dict` | 数据字典表 | 模块八（**补充**） |
+| 36 | `sys_message` | 站内消息表 | 模块八（**补充**） |
 
 ---
 
@@ -510,46 +509,7 @@ CREATE TABLE `sys_invite_code` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册邀请码表';
 ```
 
-#### 3.1.6 `sys_register_apply` 注册申请表
-
-**用途**：无邀请码时的入驻申请与审核记录。
-
-**关键设计**
-
-- `student_no` 建**唯一索引** —— 对应业务规则「同一学号重复提交**覆盖旧申请**而不新增记录」，服务层用 `INSERT ... ON DUPLICATE KEY UPDATE` 或先查后更新实现；
-- `ip` 记录提交来源，供管理员识别恶意申请；限流由服务层计数实现（同 IP 每小时 3 次，见 6.2 节），不依赖缓存中间件；
-- `create_user_id` 记录审核通过后生成的用户 ID，便于从申请追溯到账号。
-
-```sql
-DROP TABLE IF EXISTS `sys_register_apply`;
-CREATE TABLE `sys_register_apply` (
-  `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `student_no`     VARCHAR(20)  NOT NULL                COMMENT '学号，全局唯一',
-  `real_name`      VARCHAR(32)  NOT NULL                COMMENT '真实姓名',
-  `major`          VARCHAR(50)           DEFAULT NULL   COMMENT '专业',
-  `phone`          VARCHAR(20)           DEFAULT NULL   COMMENT '手机号',
-  `reason`         VARCHAR(200)          DEFAULT NULL   COMMENT '申请理由，最长 200 字',
-  `status`         TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0 待审核 1 已通过 2 已驳回',
-  `audit_user_id`  BIGINT                DEFAULT NULL   COMMENT '审核人 ID',
-  `audit_time`     DATETIME              DEFAULT NULL   COMMENT '审核时间',
-  `audit_remark`   VARCHAR(255)          DEFAULT NULL   COMMENT '审核意见',
-  `create_user_id` BIGINT                DEFAULT NULL   COMMENT '通过后生成的用户 ID',
-  `ip`             VARCHAR(64)           DEFAULT NULL   COMMENT '提交来源 IP',
-  `apply_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
-  `create_by`      BIGINT                DEFAULT NULL   COMMENT '创建人 ID',
-  `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_by`      BIGINT                DEFAULT NULL   COMMENT '更新人 ID',
-  `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `deleted`        BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_student_no` (`student_no`, `deleted`),
-  KEY `idx_status` (`status`),
-  KEY `idx_apply_time` (`apply_time`),
-  KEY `idx_ip` (`ip`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册申请表';
-```
-
-#### 3.1.7 `sys_recruit_apply` 招新报名表
+#### 3.1.6 `sys_recruit_apply` 招新报名表
 
 **用途**：保存外部招新网页提交的报名信息、管理员录入的一轮考核成绩，以及邮箱注册码的发放与使用状态。报名与考核数据只进这张表，学生凭「邮箱 + 注册码」注册成功后才写入 `sys_user`。
 
@@ -1643,7 +1603,7 @@ CREATE TABLE `sys_video` (
 
 **关键设计**
 
-- 单表设计（不拆 `dict_type` + `dict_data` 两张表）：本项目字典规模小（19 个类型、78 条，见 4.4 节；补充消息类型等后为 23 个类型、91 条），单表足够且维护更简单；
+- 单表设计（不拆 `dict_type` + `dict_data` 两张表）：本项目字典规模小（当前 23 个类型、94 条，见 4.4 节），单表足够且维护更简单；
 - `(dict_type, dict_value)` 组合唯一索引，防止同一类型下枚举值重复；
 - 后端对该表的读取结果缓存到进程内 1 小时，**枚举变更时必须主动删除对应缓存 Key**；
 - 前端所有下拉框统一走接口 `8-04`，**不得硬编码枚举**。
@@ -1897,9 +1857,6 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 -- 换班申请状态
 ('dutySwapStatus','待确认',0,1,NULL), ('dutySwapStatus','已同意',1,2,NULL),
 ('dutySwapStatus','已拒绝',2,3,NULL), ('dutySwapStatus','已取消',3,4,NULL),
--- 注册申请状态
-('registerApplyStatus','待审核',0,1,NULL), ('registerApplyStatus','已通过',1,2,NULL),
-('registerApplyStatus','已驳回',2,3,NULL),
 -- 公告状态
 ('noticeStatus','草稿',0,1,NULL), ('noticeStatus','已发布',1,2,NULL), ('noticeStatus','已下架',2,3,NULL);
 ```
@@ -1954,7 +1911,7 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 | --- | --- | --- |
 | 权限码主表（`sys_permission`） | 权限码以字符串存在 `sys_role_permission` | v1 权限码由后端枚举定义、只读不可在线维护，建主表只增加维护成本。将来支持在线维护时再引入 |
 | 公告详情表 | `sys_notice.content` 直接存全文 | 公告内容量小（富文本），列表直接返回，无需拆表 |
-| 字典类型表（`sys_dict_type`） | 合并进 `sys_dict` | 字典规模小（23 类、91 条），拆表收益低于维护成本 |
+| 字典类型表（`sys_dict_type`） | 合并进 `sys_dict` | 字典规模小（23 类、94 条），拆表收益低于维护成本 |
 | 系统配置表（`sys_config`） | 后端配置文件（`application.yml`）+ `sys_dict` | 注册通道开关（接口 `1-22`）、贡献度权重、导出上限等配置项由部署者维护、不随业务变化，放配置文件更合适，也避免「配置表被误改成前台可读」 |
 | 提交日汇总表（`repo_commit_daily`） | 直接聚合 `repo_commit` | 当前数据量下聚合够快；超过百万级再引入（见架构文档 8.2 节） |
 | 登录日志表（`sys_login_log`） | 暂无 | v1 用操作日志覆盖审计需求；独立登录日志列入 v1.1 |
@@ -1991,7 +1948,7 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 | 接口 `8-20` 站内消息列表：`WHERE receiver_id=? ORDER BY create_time DESC LIMIT 20` | `idx_create_time`（反向扫描） | 1.3 ms |
 | 接口 `8-21` 未读消息数：`WHERE receiver_id=? AND is_read=0` | `idx_receiver_read_time` | 2.9 ms |
 | 接口 `5-25` 平面图：`WHERE area_id=?` 取全部工位及坐标 | `uk_area_seat_no` | 0.06 ms |
-| 接口 `1-20` 授权回读：`WHERE role_id=?` 取 85 个权限码 | `uk_role_perm`（覆盖索引，不回表） | 0.07 ms |
+| 接口 `1-20` 授权回读：`WHERE role_id=?` 取 86 个权限码 | `uk_role_perm`（覆盖索引，不回表） | 0.07 ms |
 | 接口 `4-01` 资产台账分页：`WHERE status=? AND name LIKE` | `idx_status` | 0.06 ms |
 
 **结论**：全部核心查询都落在预期索引上，没有出现全表扫描；`repo_commit` 在 20 万行规模下按人 / 按仓库聚合仍是毫秒级，说明**当前索引已够用，暂不需要汇总表，也不需要再加索引**。（唯一需要注意的写法陷阱见 3.2.3 节末尾：提交查询必须带 `project_id`。）
@@ -2010,20 +1967,20 @@ CREATE DATABASE IF NOT EXISTS `iecmp`
 USE `iecmp`;
 ```
 
-2. **执行建表脚本**：`IECMP-数据库建表脚本.sql`（等价于第 3 章全部 DDL，模块一 → 模块八，共 37 张表；每张表前带 `DROP TABLE IF EXISTS`，可反复执行）
+2. **执行建表脚本**：`IECMP-数据库建表脚本.sql`（等价于第 3 章全部 DDL，模块一 → 模块八，共 36 张表；每张表前带 `DROP TABLE IF EXISTS`，可反复执行）
 3. **执行初始数据脚本**：`IECMP-初始数据.sql`（等价于第 4 章 4.1 内置角色 → 4.2 管理员账号 → 4.3 权限码授权 → 4.4 数据字典；统一 `INSERT IGNORE`，可反复执行）
    两个脚本内容与本文档第 3、4 章逐字对应，二者同步维护——改动本文档后必须重新生成脚本，禁止只改脚本。
 4. **验证**
 
 ```sql
--- 应返回 37
+-- 应返回 36
 SELECT COUNT(*) AS table_count FROM information_schema.tables
 WHERE table_schema = 'iecmp';
 
 -- 应返回 4 个角色
 SELECT role_code, role_name, data_scope FROM sys_role ORDER BY sort_no;
 
--- 应返回超级管理员的权限码数量（88）
+-- 应返回超级管理员的权限码数量（86）
 SELECT r.role_code, COUNT(*) AS perm_count
 FROM sys_role r JOIN sys_role_permission p ON p.role_id = r.id
 GROUP BY r.role_code;

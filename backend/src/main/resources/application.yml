@@ -121,7 +121,7 @@ iecmp:
     allowed-origins: http://localhost:5173,http://127.0.0.1:5173
   auth:
     # 无需登录即可访问的路径（不含 context-path）；** 表示任意多级
-    # 与接口文档「是否需令牌 = 否」的 9 个公开接口一一对应
+    # 与接口文档「是否需令牌 = 否」的 8 个公开接口一一对应
     ignore-urls:
       - /admin/login
       - /user/login
@@ -130,7 +130,6 @@ iecmp:
       - /common/recruit/apply
       - /common/register/recruit
       - /common/register/config
-      - /common/register/apply
       - /common/dict/**
       - /common/captcha
       - /common/health
@@ -152,7 +151,6 @@ iecmp:
   # 注册入口开关（接口 1-22）：部署配置，不落数据库
   register:
     invite-enabled: 1
-    apply-enabled: 0
     captcha-enabled: 0
     tips: "仅限创业中心内部成员使用"
 

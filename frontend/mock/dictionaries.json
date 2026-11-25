@@ -381,20 +381,6 @@
       "value": 3
     }
   ],
-  "registerApplyStatus": [
-    {
-      "label": "待审核",
-      "value": 0
-    },
-    {
-      "label": "已通过",
-      "value": 1
-    },
-    {
-      "label": "已驳回",
-      "value": 2
-    }
-  ],
   "noticeStatus": [
     {
       "label": "草稿",

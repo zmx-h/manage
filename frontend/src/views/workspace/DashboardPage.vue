@@ -54,33 +54,75 @@
     />
     <section
       v-if="side === 'user'"
-      class="home-overview"
+      class="home-banner"
     >
       <div class="panel home-notices">
-        <div class="panel-heading">
-          <h3>{{ pair('公告','Notices') }}</h3>
-          <span class="soft-badge">{{ pair('最新发布','Latest') }}</span>
-        </div>
         <div
           v-if="notices.length"
-          class="home-notice-list"
+          class="notice-carousel"
+          @mouseenter="pauseNotices"
+          @mouseleave="resumeNotices"
         >
           <article
-            v-for="notice in notices"
+            v-for="(notice, index) in notices"
             :key="notice.noticeId"
+            class="notice-slide"
+            :class="[`tone-${index % 3}`, { active: index === noticeIndex }]"
+            :style="noticeStyle(notice)"
           >
-            <div class="notice-title">
-              <el-tag
-                v-if="notice.isTop === 1"
-                size="small"
-                type="danger"
-              >
-                {{ pair('置顶','Pinned') }}
-              </el-tag>
-              <b>{{ notice.title }}</b>
-              <small>{{ notice.publishTime?.slice(0,10) }}</small>
+            <span class="notice-tag">{{ pair('公告','Notice') }}</span>
+            <div
+              class="notice-bars"
+              role="tablist"
+            >
+              <button
+                v-for="(item, i) in notices"
+                :key="item.noticeId"
+                type="button"
+                role="tab"
+                class="notice-bar"
+                :class="{ active: i === noticeIndex }"
+                :aria-selected="i === noticeIndex"
+                :aria-label="`${pair('公告','Notice')} ${i + 1}`"
+                @click="goNotice(i)"
+              />
             </div>
-            <p>{{ plainText(notice.content) }}</p>
+            <button
+              type="button"
+              class="notice-arrow prev"
+              :aria-label="pair('上一条','Previous')"
+              @click="prevNotice"
+            >
+              <AppIcon
+                name="chevron"
+                :size="18"
+              />
+            </button>
+            <button
+              type="button"
+              class="notice-arrow next"
+              :aria-label="pair('下一条','Next')"
+              @click="nextNotice"
+            >
+              <AppIcon
+                name="chevron"
+                :size="18"
+              />
+            </button>
+            <div class="notice-caption">
+              <div class="notice-caption-title">
+                <el-tag
+                  v-if="notice.isTop === 1"
+                  size="small"
+                  type="danger"
+                >
+                  {{ pair('置顶','Pinned') }}
+                </el-tag>
+                <h4>{{ notice.title }}</h4>
+              </div>
+              <p>{{ plainText(notice.content) }}</p>
+              <small>{{ noticeTime(notice.publishTime) }}</small>
+            </div>
           </article>
         </div>
         <div
@@ -93,7 +135,35 @@
           /></span><div><b>{{ t('noNotice') }}</b><small>{{ t('greeting') }}</small></div>
         </div>
       </div>
-      <div class="panel home-heatmap">
+    </section>
+    <div
+      v-if="side === 'admin'"
+      v-loading="loading"
+      class="stats-grid"
+    >
+      <article
+        v-for="stat in stats"
+        :key="stat.label"
+        class="stat-card"
+      >
+        <div class="stat-top">
+          <span>{{ t(stat.label) }}</span><span
+            class="stat-icon"
+            :class="stat.color"
+          ><AppIcon
+            :name="stat.icon"
+            :size="19"
+          /></span>
+        </div><strong>{{ stat.value ?? '—' }}</strong><div class="stat-foot">
+          <span class="mini-line" />{{ data ? t('connected') : t('notConfigured') }}
+        </div>
+      </article>
+    </div>
+    <div class="dashboard-grid">
+      <div
+        v-if="side === 'user'"
+        class="panel home-heatmap"
+      >
         <div class="panel-heading">
           <h3>{{ pair('贡献热力图','Contribution heatmap') }}</h3>
           <span class="soft-badge">{{ heatmap?.year || new Date().getFullYear() }}</span>
@@ -124,31 +194,6 @@
           <span>{{ pair('活跃天数','Active days') }}<b>{{ heatmap?.activeDays ?? '—' }}</b></span>
         </div>
       </div>
-    </section>
-    <div
-      v-if="side === 'admin'"
-      v-loading="loading"
-      class="stats-grid"
-    >
-      <article
-        v-for="stat in stats"
-        :key="stat.label"
-        class="stat-card"
-      >
-        <div class="stat-top">
-          <span>{{ t(stat.label) }}</span><span
-            class="stat-icon"
-            :class="stat.color"
-          ><AppIcon
-            :name="stat.icon"
-            :size="19"
-          /></span>
-        </div><strong>{{ stat.value ?? '—' }}</strong><div class="stat-foot">
-          <span class="mini-line" />{{ data ? t('connected') : t('notConfigured') }}
-        </div>
-      </article>
-    </div>
-    <div class="dashboard-grid">
       <section class="panel quick-panel">
         <div class="panel-heading">
           <h3>{{ t('quickLinks') }}</h3><span class="panel-index">01 / WORKFLOW</span>
@@ -313,7 +358,7 @@
   </div>
 </template>
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { invoke, normalizedList, plainText } from '@/api/client'
 import { useLocale } from '@/locales'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -326,11 +371,49 @@ const date = computed(() => new Intl.DateTimeFormat(isEn.value ? 'en-US' : 'zh-C
 const quickActions = computed(() => (side.value === 'admin' ? ['admin-system-user','admin-budget-apply','admin-asset','admin-seat-plan','admin-duty-plan','admin-honor-audit'] : ['user-budget-apply','user-asset','user-seat','user-duty','user-repo']).map(key => pages.find(p => p.key === key)).filter(p => user.hasPerm(p.permission)))
 const stats = computed(() => side.value === 'admin' ? [{label:'totalMembers',value:data.value?.userCount,icon:'users',color:'blue'},{label:'totalAssets',value:data.value?.assetStat?.total,icon:'box',color:'amber'},{label:'usedBudget',value:data.value?.budgetStat ? money(data.value.budgetStat.usedAmount) : undefined,icon:'wallet',color:'purple'},{label:'monthCommits',value:data.value?.repoCommitCountThisMonth,icon:'code',color:'green'}] : [{label:'monthCommits',value:data.value?.commitCountThisMonth,icon:'code',color:'blue'},{label:'borrowing',value:data.value?.borrowingCount,icon:'box',color:'amber'},{label:'pendingBudget',value:data.value?.budgetApplyPending,icon:'wallet',color:'purple'},{label:'unread',value:data.value?.unreadMsgCount,icon:'bell',color:'green'}])
 const budgetPercent = computed(() => Math.min(100,Math.max(0,Number(data.value?.budgetStat?.executionRate || 0))))
-const todoPages = {budgetApply:'admin-budget-apply',assetBorrow:'admin-asset-borrow',seatApply:'admin-seat-apply',seatSwap:'admin-seat-swap',honorAudit:'admin-honor-audit',registerApply:'admin-system-register'}
+const todoPages = {budgetApply:'admin-budget-apply',assetBorrow:'admin-asset-borrow',seatApply:'admin-seat-apply',seatSwap:'admin-seat-swap',honorAudit:'admin-honor-audit'}
 const todos = computed(() => Object.entries(data.value?.pendingTodo || {}).filter(([key,count]) => count > 0 && todoPages[key]).map(([key,count]) => ({key,count,page:pages.find(p => p.key === todoPages[key])})).filter(item => user.hasPerm(item.page.permission)))
 function money(value) { return value === undefined ? '—' : new Intl.NumberFormat(isEn.value ? 'en-US' : 'zh-CN',{style:'currency',currency:'CNY',maximumFractionDigits:2}).format(value) }
 const reload = () => load(side.value === 'admin' ? '8-11' : '8-10')
 const notices = ref([]); const heatmap = ref(null)
+const noticeIndex = ref(0)
+let noticeTimer = null
+let noticePaused = false
+function firstImage(html) {
+  const matched = /<img[^>]+src=["']([^"']+)["']/i.exec(String(html || ''))
+  return matched ? matched[1] : ''
+}
+function noticeStyle(notice) {
+  const cover = firstImage(notice.content)
+  return cover ? { backgroundImage: `linear-gradient(180deg, rgba(10,13,22,.18), rgba(10,13,22,.86)), url("${cover}")` } : {}
+}
+function noticeTime(value) {
+  return value ? String(value).replace(/-/g, '/').slice(0, 16) : ''
+}
+function setNotice(index) {
+  if (!notices.value.length) return
+  noticeIndex.value = (index + notices.value.length) % notices.value.length
+}
+function goNotice(index) { setNotice(index); startNotices() }
+function advanceNotice() { setNotice(noticeIndex.value + 1) }
+function nextNotice() { goNotice(noticeIndex.value + 1) }
+function prevNotice() { goNotice(noticeIndex.value - 1) }
+function stopNotices() {
+  if (noticeTimer) { window.clearInterval(noticeTimer); noticeTimer = null }
+}
+function startNotices() {
+  stopNotices()
+  if (notices.value.length < 2) return
+  noticeTimer = window.setInterval(() => { if (!noticePaused) advanceNotice() }, 5200)
+}
+function pauseNotices() { noticePaused = true }
+function resumeNotices() { noticePaused = false; startNotices() }
+watch(() => notices.value.length, (length) => {
+  if (!length) { noticeIndex.value = 0; stopNotices(); return }
+  if (noticeIndex.value >= length) noticeIndex.value = 0
+  startNotices()
+})
+onBeforeUnmount(stopNotices)
 async function loadHome() {
   if (side.value !== 'user') return
   try { notices.value = normalizedList(await invoke('8-05', { pageNum: 1, pageSize: 5 })) } catch { notices.value = [] }

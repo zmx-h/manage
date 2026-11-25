@@ -38,8 +38,8 @@ public class StatDashboardVO implements Serializable {
     @Schema(description = "全中心本月提交次数")
     private Integer repoCommitCountThisMonth;
 
-    /** 待办数量聚合，含 `budgetApply`、`assetBorrow`、`seatApply`、`seatSwap`、`honorAudit`、`registerApply` */
-    @Schema(description = "待办数量聚合，含 `budgetApply`、`assetBorrow`、`seatApply`、`seatSwap`、`honorAudit`、`registerApply`")
+    /** 待办数量聚合，含 `budgetApply`、`assetBorrow`、`seatApply`、`seatSwap`、`honorAudit` */
+    @Schema(description = "待办数量聚合，含 `budgetApply`、`assetBorrow`、`seatApply`、`seatSwap`、`honorAudit`")
     private PendingTodoVO pendingTodo;
 
     /**
@@ -149,8 +149,5 @@ public class StatDashboardVO implements Serializable {
         @Schema(description = "honorAudit（字段含义见接口文档）")
         private Integer honorAudit;
 
-        /** registerApply（字段含义见接口文档） */
-        @Schema(description = "registerApply（字段含义见接口文档）")
-        private Integer registerApply;
     }
 }

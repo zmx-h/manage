@@ -20,10 +20,6 @@ public class RegisterConfigVO implements Serializable {
     @Schema(description = "1 开启邀请码注册，0 关闭")
     private Integer inviteEnabled;
 
-    /** 1 开启注册申请，0 关闭 */
-    @Schema(description = "1 开启注册申请，0 关闭")
-    private Integer applyEnabled;
-
     /** 1 需要图形验证码 */
     @Schema(description = "1 需要图形验证码")
     private Integer captchaEnabled;

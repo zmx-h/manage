@@ -53,7 +53,7 @@ public class BudgetApplyServiceImpl extends ServiceImpl<BudgetApplyMapper, Budge
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BudgetApplyVO createApply(BudgetApplyDTO dto, Long currentUserId) {
-        BudgetPeriod period = periodMapper.selectById(dto.getPeriodId());
+        BudgetPeriod period = periodMapper.selectForUpdate(dto.getPeriodId());
         if (period == null) {
             throw new BusinessException(BudgetErrorCode.E30001.getCode(), BudgetErrorCode.E30001.getMsg());
         }
@@ -77,12 +77,22 @@ public class BudgetApplyServiceImpl extends ServiceImpl<BudgetApplyMapper, Budge
         if (dto.getAmount().compareTo(remain) > 0) {
             throw new BusinessException(BudgetErrorCode.E30006.getCode(), BudgetErrorCode.E30006.getMsg());
         }
+        BigDecimal periodTotal = period.getTotalAmount() == null ? BigDecimal.ZERO : period.getTotalAmount();
+        BigDecimal periodUsed = period.getUsedAmount() == null ? BigDecimal.ZERO : period.getUsedAmount();
+        BigDecimal periodRemain = periodTotal.subtract(periodUsed).max(BigDecimal.ZERO);
+        if (dto.getAmount().compareTo(periodRemain) > 0) {
+            throw new BusinessException(BudgetErrorCode.E30024.getCode(), BudgetErrorCode.E30024.getMsg());
+        }
 
         BudgetApply apply = new BudgetApply();
         apply.setPeriodId(dto.getPeriodId());
         apply.setItemId(dto.getItemId());
         apply.setApplyUserId(currentUserId);
-        apply.setTitle(dto.getTitle().trim());
+        String title = dto.getTitle() == null ? "" : dto.getTitle().trim();
+        if (title.isEmpty() || title.length() > 100) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "申请标题不能为空且最长 100 字");
+        }
+        apply.setTitle(title);
         apply.setAmount(dto.getAmount());
         apply.setReason(dto.getReason());
         if (dto.getExpectDate() != null && !dto.getExpectDate().isBlank()) {
@@ -222,19 +232,34 @@ public class BudgetApplyServiceImpl extends ServiceImpl<BudgetApplyMapper, Budge
             throw new BusinessException(BudgetErrorCode.E30010.getCode(), BudgetErrorCode.E30010.getMsg());
         }
         if (dto.getAuditStatus() == 1) {
+            BudgetPeriod period = periodMapper.selectForUpdate(apply.getPeriodId());
+            if (period == null) {
+                throw new BusinessException(BudgetErrorCode.E30001.getCode(), BudgetErrorCode.E30001.getMsg());
+            }
+            BudgetItem item = itemMapper.selectForUpdate(apply.getItemId());
+            if (item == null) {
+                throw new BusinessException(BudgetErrorCode.E30003.getCode(), BudgetErrorCode.E30003.getMsg());
+            }
             BigDecimal actualApproved = dto.getApprovedAmount() != null
                     ? dto.getApprovedAmount() : apply.getAmount();
-            BudgetItem item = itemMapper.selectById(apply.getItemId());
-            if (item != null) {
-                BigDecimal remain = item.getBudgetAmount().subtract(item.getUsedAmount());
-                if (actualApproved.compareTo(remain) > 0) {
-                    throw new BusinessException(BudgetErrorCode.E30006.getCode(), BudgetErrorCode.E30006.getMsg());
-                }
+            if (actualApproved == null || actualApproved.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(BudgetErrorCode.E30005.getCode(), BudgetErrorCode.E30005.getMsg());
+            }
+            if (actualApproved.compareTo(apply.getAmount()) > 0) {
+                throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "批准金额不能超过申请金额");
+            }
+            BigDecimal itemRemain = amountOrZero(item.getBudgetAmount())
+                    .subtract(amountOrZero(item.getUsedAmount())).max(BigDecimal.ZERO);
+            if (actualApproved.compareTo(itemRemain) > 0) {
+                throw new BusinessException(BudgetErrorCode.E30006.getCode(), BudgetErrorCode.E30006.getMsg());
+            }
+            BigDecimal periodRemain = amountOrZero(period.getTotalAmount())
+                    .subtract(amountOrZero(period.getUsedAmount())).max(BigDecimal.ZERO);
+            if (actualApproved.compareTo(periodRemain) > 0) {
+                throw new BusinessException(BudgetErrorCode.E30024.getCode(), BudgetErrorCode.E30024.getMsg());
             }
             apply.setStatus(1);
-            if (dto.getApprovedAmount() != null) {
-                apply.setApprovedAmount(dto.getApprovedAmount());
-            }
+            apply.setApprovedAmount(actualApproved);
         } else {
             apply.setStatus(2);
         }
@@ -242,5 +267,9 @@ public class BudgetApplyServiceImpl extends ServiceImpl<BudgetApplyMapper, Budge
         apply.setAuditTime(LocalDateTime.now());
         apply.setAuditRemark(dto.getAuditRemark());
         baseMapper.updateById(apply);
+    }
+
+    private static BigDecimal amountOrZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

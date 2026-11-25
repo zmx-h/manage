@@ -55,6 +55,9 @@ public class BudgetPeriodServiceImpl extends ServiceImpl<BudgetPeriodMapper, Bud
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final Pattern YEAR_PATTERN = Pattern.compile("^\\d{4}$");
+    private static final int MIN_YEAR = 2000;
+    private static final int MAX_YEAR = 2100;
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999999.99");
     private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final BudgetApplyMapper budgetApplyMapper;
@@ -182,6 +185,14 @@ public class BudgetPeriodServiceImpl extends ServiceImpl<BudgetPeriodMapper, Bud
         BigDecimal usedAmount = amountOrZero(period.getUsedAmount());
         if (totalAmount.compareTo(usedAmount) < 0) {
             throw error(BudgetErrorCode.E30016);
+        }
+        BigDecimal allocated = budgetItemMapper.selectList(Wrappers.<BudgetItem>lambdaQuery()
+                        .eq(BudgetItem::getPeriodId, period.getId()))
+                .stream()
+                .map(item -> amountOrZero(item.getBudgetAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalAmount.compareTo(allocated) < 0) {
+            throw error(BudgetErrorCode.E30027);
         }
         LocalDate startDate = parseDate(dto.getStartDate(), "开始日期");
         LocalDate endDate = parseDate(dto.getEndDate(), "结束日期");
@@ -332,12 +343,24 @@ public class BudgetPeriodServiceImpl extends ServiceImpl<BudgetPeriodMapper, Bud
         if (value == null || !YEAR_PATTERN.matcher(value.trim()).matches()) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "所属年度格式应为 yyyy");
         }
-        return value.trim();
+        String year = value.trim();
+        int yearValue = Integer.parseInt(year);
+        if (yearValue < MIN_YEAR || yearValue > MAX_YEAR) {
+            throw new BusinessException(ResultCode.PARAM_ERROR,
+                    "所属年度需在 " + MIN_YEAR + " ~ " + MAX_YEAR + " 之间");
+        }
+        return year;
     }
 
     private BigDecimal validateAmount(BigDecimal value) {
         if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "预算总额度必须大于 0");
+        }
+        if (value.compareTo(MAX_AMOUNT) > 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "预算总额度不能超过 " + MAX_AMOUNT);
+        }
+        if (value.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "预算总额度最多保留 2 位小数");
         }
         return value.setScale(2, RoundingMode.HALF_UP);
     }

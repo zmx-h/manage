@@ -54,7 +54,6 @@ INSERT INTO `tmp_perm` (`code`, `grp`) VALUES
 ('system:user:edit','system'), ('system:user:reset','system'), ('system:user:remove','system'),
 ('system:role:list','system'), ('system:role:add','system'), ('system:role:edit','system'),
 ('system:role:remove','system'), ('system:role:auth','system'),
-('system:register:list','system'), ('system:register:audit','system'),
 ('system:invite:list','system'), ('system:invite:add','system'), ('system:invite:remove','system'),
 ('system:recruit:list','system'), ('system:recruit:assess','system'), ('system:recruit:send','system'),
 ('system:log:list','system'),
@@ -183,9 +182,6 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 -- 换班申请状态
 ('dutySwapStatus','待确认',0,1,NULL), ('dutySwapStatus','已同意',1,2,NULL),
 ('dutySwapStatus','已拒绝',2,3,NULL), ('dutySwapStatus','已取消',3,4,NULL),
--- 注册申请状态
-('registerApplyStatus','待审核',0,1,NULL), ('registerApplyStatus','已通过',1,2,NULL),
-('registerApplyStatus','已驳回',2,3,NULL),
 -- 招新报名状态
 ('recruitApplyStatus','待考核',0,1,NULL), ('recruitApplyStatus','已通过待发码',1,2,NULL),
 ('recruitApplyStatus','未通过',2,3,NULL), ('recruitApplyStatus','已发码',3,4,NULL),
@@ -197,19 +193,19 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 --  自检（可选执行，仅查询、不写数据）
 -- ============================================================================
 
--- 应返回 37
+-- 应返回 36
 SELECT COUNT(*) AS table_count FROM information_schema.tables
 WHERE table_schema = 'iecmp';
 
 -- 应返回 4 个角色
 SELECT role_code, role_name, data_scope FROM sys_role ORDER BY sort_no;
 
--- SUPER_ADMIN 应为 88
+-- SUPER_ADMIN 应为 86
 SELECT r.role_code, COUNT(*) AS perm_count
 FROM sys_role r JOIN sys_role_permission p ON p.role_id = r.id
 WHERE p.deleted = 0
 GROUP BY r.role_code
 ORDER BY perm_count DESC;
 
--- 应为 24 个类型、97 条
+-- 应为 23 个类型、94 条
 SELECT COUNT(DISTINCT dict_type) AS type_count, COUNT(*) AS item_count FROM sys_dict WHERE deleted = 0;

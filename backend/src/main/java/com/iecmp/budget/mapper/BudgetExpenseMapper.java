@@ -8,6 +8,7 @@ import com.iecmp.budget.vo.UserBudgetExpensePageVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -71,4 +72,7 @@ public interface BudgetExpenseMapper extends BaseMapper<BudgetExpense> {
 
     /** 3-25 月度支出趋势 */
     List<BudgetStatOverviewVO.MonthTrendVO> selectMonthTrend(@Param("periodId") Long periodId);
+
+    /** 汇总某预算申请已登记的支出金额（用于校验不超出批准额度） */
+    BigDecimal selectExpenseAmountByApplyId(@Param("applyId") Long applyId);
 }
