@@ -4,13 +4,13 @@
 | --- | --- |
 | 系统名称 | IECMP（Innovation & Entrepreneurship Center Management Platform）创业中心管理平台 |
 | 文档名称 | 数据库设计 |
-| 文档版本 | V1.2 |
+| 文档版本 | V1.3 |
 | 编写日期 | 2026-09-22 |
 | 编写人员 | 后端组 |
 | 数据库 | MySQL 8.0+ |
 | 存储引擎 | InnoDB |
 | 字符集 / 排序规则 | `utf8mb4` / `utf8mb4_general_ci` |
-| 表数量 | **36 张**（业务表 34 张 + 补充表 2 张） |
+| 表数量 | **37 张**（业务表 35 张 + 补充表 2 张） |
 | 关联文档 | 《IECMP-项目介绍与技术架构.md》《IECMP-接口开发文档-v1.6.md》 |
 
 ## 修订记录
@@ -20,6 +20,7 @@
 | 2026-09-22 | V1.0 | 首版：设计约定、关系概览与 ER 图、36 张表结构设计与完整建表 SQL、初始数据 SQL、索引与优化建议 | 后端组 |
 | 2026-09-24 | V1.2 | **索引与逻辑删除关键修正**：① `deleted` 由 `TINYINT` 改为 `BIGINT`，并让 `deleted` 参与全部 18 个唯一索引，解决「唯一索引 + 逻辑删除」导致的二次删除 / 重复授权必然冲突的问题（详见 1.5 节）；② 补 `seat_apply.assign_seat_id`（审核通过时改派其他工位）、`budget_apply.approved_amount`（部分批准金额）；③ 补权限码 `seat:seat:list`（接口 `5-25` 依赖，缺失会导致超管 403），权限码总数 84 → 85；④ 清理 11 处冗余 / 低效索引，新增 5 处联合索引；⑤ 数据字典补齐 4 类共 13 条（`msgType`、`dutySwapStatus`、`registerApplyStatus`、`noticeStatus`），总数 19 类 78 条 → 23 类 91 条；⑥ 初始数据脚本统一 `INSERT IGNORE` 实现可重复执行；⑦ 交付两个 SQL 脚本文件（`IECMP-数据库建表脚本.sql`、`IECMP-初始数据.sql`），并新增 5.5.1 节记录真机实测结论（MySQL 8.0.44、20 万行提交 / 10 万条消息，核心查询均命中预期索引）、3.2.3 节补「提交查询必须带 `project_id`」的写法提示 | 后端组 |
 | 2026-09-24 | V1.1 | 与接口文档 V1.4 对齐：`repo_account` 新增 `sync_status`（0 未采集 / 1 采集中 / 2 采集正常 / 3 采集失败），`repo_project.sync_status` 注释与接口文档统一为「采集」口径，`repo_sync_log.sync_type` 注释改为「1 定时自动 2 管理员手动补采」；表数量不变（仍 36 张），无新增表 | 后端组 |
+| 2026-11-25 | V1.3 | 新增**招新报名表** `sys_recruit_apply`（外部招新网页报名 → 管理员录入一轮成绩 → 邮箱注册码注册），`sys_user` 补 `class_name`；权限码 85 → 88（`system:recruit:list` / `assess` / `send`），数据字典 23 类 91 条 → 24 类 97 条；表数量 36 → 37 | 后端组 |
 
 > **文档定位**：本文档是表结构的**唯一权威来源**。DDL 与本文档不一致时，以本文档为准。表结构变更须更新本文档并登记修订记录。
 >
@@ -32,7 +33,7 @@
 - [第 1 章 设计约定](#第-1-章-设计约定)
 - [第 2 章 关系概览与 ER 图](#第-2-章-关系概览与-er-图)
 - [第 3 章 表结构设计与建表 SQL](#第-3-章-表结构设计与建表-sql)
-  - 3.1 模块一：用户与权限（6 张）
+  - 3.1 模块一：用户与权限（7 张）
   - 3.2 模块二：代码仓库关联（4 张）
   - 3.3 模块三：部门预算（4 张）
   - 3.4 模块四：部门财产（6 张）
@@ -210,36 +211,37 @@ public class DutyPlan {
 | 4 | `sys_role_permission` | 角色权限关联表 | 模块一 |
 | 5 | `sys_invite_code` | 注册邀请码表 | 模块一 |
 | 6 | `sys_register_apply` | 注册申请表 | 模块一 |
-| 7 | `repo_account` | 托管账户表 | 模块二 |
-| 8 | `repo_project` | 仓库表 | 模块二 |
-| 9 | `repo_commit` | 提交记录表 | 模块二 |
-| 10 | `repo_sync_log` | 同步日志表 | 模块二 |
-| 11 | `budget_period` | 预算周期表 | 模块三 |
-| 12 | `budget_item` | 预算科目表 | 模块三 |
-| 13 | `budget_apply` | 预算申请表 | 模块三 |
-| 14 | `budget_expense` | 支出记录表 | 模块三 |
-| 15 | `asset_category` | 资产分类表 | 模块四 |
-| 16 | `asset_info` | 资产台账表 | 模块四 |
-| 17 | `asset_borrow` | 借用/领用表 | 模块四 |
-| 18 | `asset_record` | 资产变动流水表 | 模块四 |
-| 19 | `asset_inventory` | 盘点任务表 | 模块四 |
-| 20 | `asset_inventory_item` | 盘点明细表 | 模块四 |
-| 21 | `seat_area` | 工位区域表 | 模块五 |
-| 22 | `seat_info` | 工位表 | 模块五 |
-| 23 | `seat_apply` | 工位申请表 | 模块五 |
-| 24 | `seat_swap` | 座位调换申请表 | 模块五 |
-| 25 | `honor_alumni` | 学长学姐信息表 | 模块六 |
-| 26 | `honor_record` | 荣誉记录表 | 模块六 |
-| 27 | `duty_plan` | 排班计划表 | 模块七 |
-| 28 | `duty_schedule` | 值日安排表 | 模块七 |
-| 29 | `duty_swap` | 换班申请表 | 模块七 |
-| 30 | `duty_reminder_config` | 提醒配置表 | 模块七 |
-| 31 | `sys_file` | 文件表 | 模块八 |
-| 32 | `sys_notice` | 公告表 | 模块八 |
-| 33 | `sys_oper_log` | 操作日志表 | 模块八 |
-| 34 | `sys_video` | 视频资源表 | 模块八 |
-| 35 | `sys_dict` | 数据字典表 | 模块八（**补充**） |
-| 36 | `sys_message` | 站内消息表 | 模块八（**补充**） |
+| 7 | `sys_recruit_apply` | 招新报名表 | 模块一 |
+| 8 | `repo_account` | 托管账户表 | 模块二 |
+| 9 | `repo_project` | 仓库表 | 模块二 |
+| 10 | `repo_commit` | 提交记录表 | 模块二 |
+| 11 | `repo_sync_log` | 同步日志表 | 模块二 |
+| 12 | `budget_period` | 预算周期表 | 模块三 |
+| 13 | `budget_item` | 预算科目表 | 模块三 |
+| 14 | `budget_apply` | 预算申请表 | 模块三 |
+| 15 | `budget_expense` | 支出记录表 | 模块三 |
+| 16 | `asset_category` | 资产分类表 | 模块四 |
+| 17 | `asset_info` | 资产台账表 | 模块四 |
+| 18 | `asset_borrow` | 借用/领用表 | 模块四 |
+| 19 | `asset_record` | 资产变动流水表 | 模块四 |
+| 20 | `asset_inventory` | 盘点任务表 | 模块四 |
+| 21 | `asset_inventory_item` | 盘点明细表 | 模块四 |
+| 22 | `seat_area` | 工位区域表 | 模块五 |
+| 23 | `seat_info` | 工位表 | 模块五 |
+| 24 | `seat_apply` | 工位申请表 | 模块五 |
+| 25 | `seat_swap` | 座位调换申请表 | 模块五 |
+| 26 | `honor_alumni` | 学长学姐信息表 | 模块六 |
+| 27 | `honor_record` | 荣誉记录表 | 模块六 |
+| 28 | `duty_plan` | 排班计划表 | 模块七 |
+| 29 | `duty_schedule` | 值日安排表 | 模块七 |
+| 30 | `duty_swap` | 换班申请表 | 模块七 |
+| 31 | `duty_reminder_config` | 提醒配置表 | 模块七 |
+| 32 | `sys_file` | 文件表 | 模块八 |
+| 33 | `sys_notice` | 公告表 | 模块八 |
+| 34 | `sys_oper_log` | 操作日志表 | 模块八 |
+| 35 | `sys_video` | 视频资源表 | 模块八 |
+| 36 | `sys_dict` | 数据字典表 | 模块八（**补充**） |
+| 37 | `sys_message` | 站内消息表 | 模块八（**补充**） |
 
 ---
 
@@ -348,7 +350,7 @@ erDiagram
 
 > 下列 DDL 可直接执行。每张表前给出**用途**与**关键设计说明**，DDL 中的字段注释即为字段说明。
 
-### 3.1 模块一：用户与权限（6 张）
+### 3.1 模块一：用户与权限（7 张）
 
 #### 3.1.1 `sys_user` 用户表
 
@@ -371,6 +373,7 @@ CREATE TABLE `sys_user` (
   `real_name`       VARCHAR(32)  NOT NULL                          COMMENT '姓名',
   `student_no`      VARCHAR(20)           DEFAULT NULL             COMMENT '学号，全局唯一',
   `grade`           VARCHAR(10)           DEFAULT NULL             COMMENT '年级，如 2023',
+  `class_name`      VARCHAR(50)           DEFAULT NULL             COMMENT '班级',
   `major`           VARCHAR(50)           DEFAULT NULL             COMMENT '专业',
   `phone`           VARCHAR(20)           DEFAULT NULL             COMMENT '手机号',
   `email`           VARCHAR(64)           DEFAULT NULL             COMMENT '邮箱',
@@ -483,17 +486,16 @@ CREATE TABLE `sys_role_permission` (
 **关键设计**
 
 - `code` 唯一，由后端生成 8 位大写字母数字；
-- `max_use_count` 默认 1（一次性），支持设为多次用于批量入组；
+- 邀请码一次一码、一人一次，使用后即失效（`used_count` 由 0 置 1）；
 - `expire_time` 为 NULL 表示长期有效；
-- 注册成功时服务层用 `UPDATE ... SET used_count = used_count + 1 WHERE id = ? AND used_count < max_use_count AND status = 1` —— **把并发校验放在 SQL 的 WHERE 里**，靠行锁保证邀请码不会被超发（比先查后改更安全）。
+- 注册成功时服务层用 `UPDATE ... SET used_count = 1 WHERE id = ? AND used_count = 0 AND status = 1` —— **把并发校验放在 SQL 的 WHERE 里**，靠行锁保证同一个邀请码只会成功注册一次（比先查后改更安全）。
 
 ```sql
 DROP TABLE IF EXISTS `sys_invite_code`;
 CREATE TABLE `sys_invite_code` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   `code`          VARCHAR(16)  NOT NULL                COMMENT '邀请码，8 位大写字母数字',
-  `max_use_count` INT          NOT NULL DEFAULT 1      COMMENT '可用次数',
-  `used_count`    INT          NOT NULL DEFAULT 0      COMMENT '已使用次数',
+  `used_count`    INT          NOT NULL DEFAULT 0      COMMENT '使用状态：0 未使用 1 已使用（一次性）',
   `expire_time`   DATETIME              DEFAULT NULL   COMMENT '过期时间，NULL 表示长期有效',
   `status`        TINYINT      NOT NULL DEFAULT 1      COMMENT '状态：0 作废 1 有效',
   `remark`        VARCHAR(255)          DEFAULT NULL   COMMENT '备注，如「2026 秋季纳新」',
@@ -515,7 +517,7 @@ CREATE TABLE `sys_invite_code` (
 **关键设计**
 
 - `student_no` 建**唯一索引** —— 对应业务规则「同一学号重复提交**覆盖旧申请**而不新增记录」，服务层用 `INSERT ... ON DUPLICATE KEY UPDATE` 或先查后更新实现；
-- `ip` 记录提交来源，供管理员识别恶意申请；配合 Redis 限流（同 IP 每小时 3 次）；
+- `ip` 记录提交来源，供管理员识别恶意申请；限流由服务层计数实现（同 IP 每小时 3 次，见 6.2 节），不依赖缓存中间件；
 - `create_user_id` 记录审核通过后生成的用户 ID，便于从申请追溯到账号。
 
 ```sql
@@ -545,6 +547,59 @@ CREATE TABLE `sys_register_apply` (
   KEY `idx_apply_time` (`apply_time`),
   KEY `idx_ip` (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册申请表';
+```
+
+#### 3.1.7 `sys_recruit_apply` 招新报名表
+
+**用途**：保存外部招新网页提交的报名信息、管理员录入的一轮考核成绩，以及邮箱注册码的发放与使用状态。报名与考核数据只进这张表，学生凭「邮箱 + 注册码」注册成功后才写入 `sys_user`。
+
+**关键设计**
+
+- **状态机**：`0 待考核 → 1 已通过待发码 → 3 已发码 → 4 已注册`，未通过为 `2`，注册码过期回落为 `5`；`1/3/5` 均允许管理员补发注册码，`0/2` 允许重新录入成绩；
+- **邮箱唯一**：`(email, deleted)` 唯一索引防止同一邮箱重复报名，`(student_no, deleted)` 在学号非空时同样防重（MySQL 唯一索引允许多个 `NULL`）；
+- **注册码只存哈希**：`code_hash = HMAC-SHA256(code + pepper)`，不保存明文；`(code_hash, deleted)` 唯一，过期后重新发码不会冲突；
+- **限流与列表**：`(status, apply_time)` 支撑管理端按状态 + 时间筛选，`(ip, apply_time)` 支撑同 IP 每小时 5 次的报名限流计数；
+- `code_send_count` / `code_sent_time` 记录发信次数与最近发信时间，配合 `code-resend-seconds=60` 做补发间隔校验；`code_attempts` 记录连续输错次数，超过 5 次要求重新发码；
+- 不建物理外键：`create_user_id`、`assessment_user_id` 仅做逻辑关联，便于历史留档。
+
+```sql
+DROP TABLE IF EXISTS `sys_recruit_apply`;
+CREATE TABLE `sys_recruit_apply` (
+  `id`                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `student_no`         VARCHAR(20)           DEFAULT NULL   COMMENT '学号，可选',
+  `real_name`          VARCHAR(32)  NOT NULL                COMMENT '姓名',
+  `grade`              VARCHAR(10)  NOT NULL                COMMENT '年级',
+  `class_name`         VARCHAR(50)  NOT NULL                COMMENT '班级',
+  `email`              VARCHAR(64)  NOT NULL                COMMENT '邮箱（小写）',
+  `phone`              VARCHAR(20)           DEFAULT NULL   COMMENT '手机号',
+  `intro`              VARCHAR(500)          DEFAULT NULL   COMMENT '个人简介',
+  `status`             TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0 待考核 1 已通过待发码 2 未通过 3 已发码 4 已注册 5 注册码已过期',
+  `score`              DECIMAL(5,2)          DEFAULT NULL   COMMENT '考核成绩',
+  `assessment_remark`  VARCHAR(255)          DEFAULT NULL   COMMENT '成绩备注',
+  `assessment_user_id` BIGINT                DEFAULT NULL   COMMENT '录入成绩的管理员 ID',
+  `assessment_time`    DATETIME              DEFAULT NULL   COMMENT '录入成绩时间',
+  `code_hash`          CHAR(64)              DEFAULT NULL   COMMENT '注册码 HMAC-SHA256(code+pepper)',
+  `code_expire_time`   DATETIME              DEFAULT NULL   COMMENT '注册码过期时间',
+  `code_create_time`   DATETIME              DEFAULT NULL   COMMENT '注册码生成时间',
+  `code_sent_time`     DATETIME              DEFAULT NULL   COMMENT '最近发信时间',
+  `code_send_count`    INT          NOT NULL DEFAULT 0      COMMENT '累计发信次数',
+  `code_attempts`      INT          NOT NULL DEFAULT 0      COMMENT '连续输错次数',
+  `create_user_id`     BIGINT                DEFAULT NULL   COMMENT '注册成功后生成的用户 ID',
+  `ip`                 VARCHAR(64)           DEFAULT NULL   COMMENT '报名来源 IP',
+  `apply_time`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间',
+  `create_by`          BIGINT                DEFAULT NULL   COMMENT '创建人 ID',
+  `create_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`          BIGINT                DEFAULT NULL   COMMENT '更新人 ID',
+  `update_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted`            BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_email` (`email`, `deleted`),
+  UNIQUE KEY `uk_student_no` (`student_no`, `deleted`),
+  UNIQUE KEY `uk_code_hash` (`code_hash`, `deleted`),
+  KEY `idx_status_apply_time` (`status`, `apply_time`),
+  KEY `idx_email_status` (`email`, `status`),
+  KEY `idx_ip_apply_time` (`ip`, `apply_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='招新报名表';
 ```
 
 ### 3.2 模块二：代码仓库关联（4 张）
@@ -1590,7 +1645,7 @@ CREATE TABLE `sys_video` (
 
 - 单表设计（不拆 `dict_type` + `dict_data` 两张表）：本项目字典规模小（19 个类型、78 条，见 4.4 节；补充消息类型等后为 23 个类型、91 条），单表足够且维护更简单；
 - `(dict_type, dict_value)` 组合唯一索引，防止同一类型下枚举值重复；
-- 后端对该表的读取结果缓存到 Redis 1 小时，**枚举变更时必须主动删除对应缓存 Key**；
+- 后端对该表的读取结果缓存到进程内 1 小时，**枚举变更时必须主动删除对应缓存 Key**；
 - 前端所有下拉框统一走接口 `8-04`，**不得硬编码枚举**。
 
 ```sql
@@ -1877,7 +1932,7 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 | `budget_item.budget_amount` 变更后 | - | 修改科目额度时需校验不低于已用额度 |
 | `asset_info.status` | 当前借用记录 | 借出（→ 已借出）、归还（→ 在用） |
 | `asset_inventory.total_count` / `normal_count` / `abnormal_count` | `asset_inventory_item` | 结束盘点时一次性回填 |
-| `sys_invite_code.used_count` | 注册记录 | 注册成功时 `used_count + 1` |
+| `sys_invite_code.used_count` | 注册记录 | 注册成功时 `used_count` 由 0 置 1，邀请码随即失效 |
 | `repo_account.last_sync_time` / `sync_status` | `repo_sync_log` | 采集任务结束时同步更新（状态与最近时间冗余在账户表，省去成员端查日志表） |
 
 > **一致性兜底**：期末或上线前应提供一个「重算」维护接口 / SQL，按明细表重新汇总上述字段，用于修复因异常中断导致的不一致。
@@ -1888,7 +1943,7 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 
 | 补充表 | 为什么必须补 |
 | --- | --- |
-| `sys_dict` | 接口 `8-04 数据字典查询` 要求按类型返回枚举列表，且明确说明「结果在 Redis 中缓存 1 小时，枚举变更时由后端主动清理缓存」。既然有「枚举变更」，就必然有存放枚举的表。原文档只写了缓存策略，漏了数据源 |
+| `sys_dict` | 接口 `8-04 数据字典查询` 要求按类型返回枚举列表，且明确说明「结果在进程内缓存 1 小时，枚举变更时由后端主动清理缓存」。既然有「枚举变更」，就必然有存放枚举的表。原文档只写了缓存策略，漏了数据源 |
 | `sys_message` | 模块七明确「提醒渠道 v1 先做站内消息」，但原文档只设计了 `duty_reminder_config`（提醒配置），没有存放消息本身的表。「站内消息」需要一个落地的接收箱 |
 
 > 这两张表属于**设计补齐**，接口文档 V1.3 起的数据模型章节（5.8 节）已同步补上，三份文档口径一致。
@@ -1955,20 +2010,20 @@ CREATE DATABASE IF NOT EXISTS `iecmp`
 USE `iecmp`;
 ```
 
-2. **执行建表脚本**：`IECMP-数据库建表脚本.sql`（等价于第 3 章全部 DDL，模块一 → 模块八，共 36 张表；每张表前带 `DROP TABLE IF EXISTS`，可反复执行）
+2. **执行建表脚本**：`IECMP-数据库建表脚本.sql`（等价于第 3 章全部 DDL，模块一 → 模块八，共 37 张表；每张表前带 `DROP TABLE IF EXISTS`，可反复执行）
 3. **执行初始数据脚本**：`IECMP-初始数据.sql`（等价于第 4 章 4.1 内置角色 → 4.2 管理员账号 → 4.3 权限码授权 → 4.4 数据字典；统一 `INSERT IGNORE`，可反复执行）
    两个脚本内容与本文档第 3、4 章逐字对应，二者同步维护——改动本文档后必须重新生成脚本，禁止只改脚本。
 4. **验证**
 
 ```sql
--- 应返回 36
+-- 应返回 37
 SELECT COUNT(*) AS table_count FROM information_schema.tables
 WHERE table_schema = 'iecmp';
 
 -- 应返回 4 个角色
 SELECT role_code, role_name, data_scope FROM sys_role ORDER BY sort_no;
 
--- 应返回超级管理员的权限码数量（85）
+-- 应返回超级管理员的权限码数量（88）
 SELECT r.role_code, COUNT(*) AS perm_count
 FROM sys_role r JOIN sys_role_permission p ON p.role_id = r.id
 GROUP BY r.role_code;
@@ -1978,4 +2033,4 @@ GROUP BY r.role_code;
 
 > **文档定位**：本文档是表结构与 DDL 的唯一权威来源。表结构变更须先更新本文档并登记修订记录，再改动代码与执行 DDL。
 >
-> 文档版本：V1.2　|　最后更新：2026-09-24　|　编写：后端组
+> 文档版本：V1.3　|　最后更新：2026-11-25　|　编写：后端组

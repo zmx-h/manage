@@ -17,20 +17,6 @@ spring:
       max-lifetime: 1800000
       connection-test-query: SELECT 1
 
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: 0
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 8
-          min-idle: 0
-          max-wait: 3000ms
-
 mybatis-plus:
   configuration:
     # 开发环境把 SQL 打到控制台，方便排查

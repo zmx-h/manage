@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.properties.IecmpProperties;
@@ -39,7 +40,6 @@ import com.iecmp.system.vo.RegisterApplyVO;
 import com.iecmp.system.vo.RegisterConfigVO;
 import com.iecmp.system.vo.RegisterVO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -53,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 成员接入、注册审核与邀请码业务实现。
@@ -76,16 +75,20 @@ public class RegisterServiceImpl implements RegisterService {
     private final SysUserRoleService sysUserRoleService;
     private final SysRoleService sysRoleService;
     private final IecmpProperties iecmpProperties;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final LocalCacheStore cacheStore;
 
     @Override
     public RegisterConfigVO getConfig() {
         IecmpProperties.Register cfg = iecmpProperties.getRegister();
+        IecmpProperties.Recruit recruit = iecmpProperties.getRecruit();
         RegisterConfigVO vo = new RegisterConfigVO();
         vo.setInviteEnabled(cfg.getInviteEnabled());
         vo.setApplyEnabled(cfg.getApplyEnabled());
         vo.setCaptchaEnabled(cfg.getCaptchaEnabled());
         vo.setTips(cfg.getTips());
+        vo.setRecruitEnabled(recruit.getEnabled());
+        vo.setRecruitTips("招新考核通过后，请使用报名邮箱和邮件中的注册码完成注册");
+        vo.setRecruitCodeExpireHours(recruit.getCodeExpireHours());
         return vo;
     }
 
@@ -103,8 +106,7 @@ public class RegisterServiceImpl implements RegisterService {
                 && !invite.getExpireTime().isAfter(LocalDateTime.now())) {
             throw error(SystemErrorCode.E10028);
         }
-        if (invite.getMaxUseCount() == null || invite.getUsedCount() == null
-                || invite.getUsedCount() >= invite.getMaxUseCount()) {
+        if (invite.getUsedCount() == null || invite.getUsedCount() >= 1) {
             throw error(SystemErrorCode.E10029);
         }
 
@@ -117,8 +119,8 @@ public class RegisterServiceImpl implements RegisterService {
                 .eq(SysInviteCode::getId, invite.getId())
                 .eq(SysInviteCode::getStatus, InviteCodeStatusEnum.VALID.getValue())
                 .apply("(expire_time IS NULL OR expire_time > NOW())")
-                .apply("used_count < max_use_count")
-                .setSql("used_count = used_count + 1"));
+                .apply("used_count = 0")
+                .setSql("used_count = 1"));
         if (!consumed) {
             throw error(SystemErrorCode.E10029);
         }
@@ -273,12 +275,8 @@ public class RegisterServiceImpl implements RegisterService {
     @Transactional(rollbackFor = Exception.class)
     public InviteCodeCreateVO createInvite(InviteCodeAddDTO dto) {
         int count = dto.getCount() == null ? 1 : dto.getCount();
-        int maxUseCount = dto.getMaxUseCount() == null ? 1 : dto.getMaxUseCount();
         if (count < 1 || count > 50) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "生成数量需为 1~50");
-        }
-        if (maxUseCount < 1 || maxUseCount > 1000) {
-            throw new BusinessException(ResultCode.PARAM_ERROR, "每个邀请码可用次数需为 1~1000");
         }
 
         LocalDateTime expireTime = parseDateTime(dto.getExpireTime());
@@ -297,7 +295,6 @@ public class RegisterServiceImpl implements RegisterService {
             }
             SysInviteCode invite = new SysInviteCode();
             invite.setCode(code);
-            invite.setMaxUseCount(maxUseCount);
             invite.setUsedCount(0);
             invite.setExpireTime(expireTime);
             invite.setStatus(InviteCodeStatusEnum.VALID.getValue());
@@ -334,9 +331,9 @@ public class RegisterServiceImpl implements RegisterService {
         if (!StringUtils.hasText(key) || !StringUtils.hasText(code)) {
             throw error(SystemErrorCode.E10004);
         }
-        String redisKey = CacheKeyConstants.CAPTCHA_PREFIX + key.trim();
-        String expected = stringRedisTemplate.opsForValue().get(redisKey);
-        stringRedisTemplate.delete(redisKey);
+        String cacheKey = CacheKeyConstants.CAPTCHA_PREFIX + key.trim();
+        String expected = cacheStore.get(cacheKey);
+        cacheStore.delete(cacheKey);
         if (expected == null || !expected.equalsIgnoreCase(code.trim())) {
             throw error(SystemErrorCode.E10004);
         }
@@ -345,11 +342,8 @@ public class RegisterServiceImpl implements RegisterService {
     private void checkApplyRateLimit(String ip) {
         String key = CacheKeyConstants.LIMIT_REGISTER_PREFIX
                 + (StringUtils.hasText(ip) ? ip.trim() : "unknown");
-        Long count = stringRedisTemplate.opsForValue().increment(key);
-        if (count != null && count == 1L) {
-            stringRedisTemplate.expire(key, CacheKeyConstants.LIMIT_REGISTER_TTL_SECONDS, TimeUnit.SECONDS);
-        }
-        if (count != null && count > CacheKeyConstants.REGISTER_LIMIT_PER_HOUR) {
+        long count = cacheStore.increment(key, CacheKeyConstants.LIMIT_REGISTER_TTL_SECONDS);
+        if (count > CacheKeyConstants.REGISTER_LIMIT_PER_HOUR) {
             throw error(SystemErrorCode.E10030);
         }
     }
@@ -434,7 +428,6 @@ public class RegisterServiceImpl implements RegisterService {
         InviteCodePageVO vo = new InviteCodePageVO();
         vo.setId(invite.getId());
         vo.setCode(invite.getCode());
-        vo.setMaxUseCount(invite.getMaxUseCount());
         vo.setUsedCount(invite.getUsedCount());
         vo.setExpireTime(formatDateTime(invite.getExpireTime()));
         vo.setStatus(invite.getStatus());

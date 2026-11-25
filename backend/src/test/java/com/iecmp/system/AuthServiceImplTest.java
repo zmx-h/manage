@@ -1,5 +1,6 @@
 package com.iecmp.system;
 
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.properties.JwtProperties;
@@ -19,20 +20,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.Date;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,12 +47,9 @@ class AuthServiceImplTest {
     @Mock
     private TokenService tokenService;
     @Mock
-    private StringRedisTemplate stringRedisTemplate;
-    @Mock
-    private ValueOperations<String, String> valueOperations;
-    @Mock
     private Claims claims;
 
+    private LocalCacheStore cacheStore;
     private AuthServiceImpl authService;
     private JwtProperties jwtProperties;
 
@@ -61,8 +57,8 @@ class AuthServiceImplTest {
     void setUp() {
         jwtProperties = new JwtProperties();
         jwtProperties.setRefreshRenewThreshold(86400L);
-        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        authService = new AuthServiceImpl(sysUserService, tokenService, jwtProperties, stringRedisTemplate);
+        cacheStore = new LocalCacheStore();
+        authService = new AuthServiceImpl(sysUserService, tokenService, jwtProperties, cacheStore);
     }
 
     @Test
@@ -70,7 +66,7 @@ class AuthServiceImplTest {
         SysUser user = user(1L, "admin", ADMIN_HASH);
         LoginUser loginUser = loginUser(1L, "admin", "超级管理员", "SUPER_ADMIN", "system:user:list");
         when(sysUserService.getByUsername("admin")).thenReturn(user);
-        when(valueOperations.get("iecmp:login:fail:admin")).thenReturn(null);
+        cacheStore.set("iecmp:login:fail:admin", "3", 600L);
         when(tokenService.loadLoginUser(1L)).thenReturn(loginUser);
         when(tokenService.issue(eq(1L), eq("admin"), eq("超级管理员"), same(loginUser)))
                 .thenReturn(new TokenService.TokenPair("access", "refresh", "Bearer", 7200L));
@@ -87,15 +83,13 @@ class AuthServiceImplTest {
         assertEquals(Set.of("SUPER_ADMIN"), Set.copyOf(vo.getUserInfo().getRoles()));
         assertEquals(Set.of("system:user:list"), Set.copyOf(vo.getUserInfo().getPermissions()));
         verify(sysUserService).updateById(any(SysUser.class));
-        verify(stringRedisTemplate).delete("iecmp:login:fail:admin");
+        assertNull(cacheStore.get("iecmp:login:fail:admin"));
     }
 
     @Test
     void wrongPasswordIsCountedAndRejected() {
         SysUser user = user(1L, "admin", ADMIN_HASH);
         when(sysUserService.getByUsername("admin")).thenReturn(user);
-        when(valueOperations.get("iecmp:login:fail:admin")).thenReturn(null);
-        when(valueOperations.increment("iecmp:login:fail:admin")).thenReturn(1L);
 
         AdminLoginDTO dto = new AdminLoginDTO();
         dto.setUsername("admin");
@@ -104,7 +98,7 @@ class AuthServiceImplTest {
         BusinessException error = assertThrows(BusinessException.class, () -> authService.loginAdmin(dto));
 
         assertEquals(10003, error.getCode());
-        verify(stringRedisTemplate).expire("iecmp:login:fail:admin", 600L, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals("1", cacheStore.get("iecmp:login:fail:admin"));
         verify(tokenService, never()).issue(any(), any(), any(), any());
     }
 
@@ -113,7 +107,6 @@ class AuthServiceImplTest {
         SysUser user = user(2L, "manager", ADMIN_HASH);
         LoginUser loginUser = loginUser(2L, "manager", "负责人", "CENTER_HEAD", "budget:period:list");
         when(sysUserService.getByUsername("manager")).thenReturn(user);
-        when(valueOperations.get("iecmp:login:fail:manager")).thenReturn(null);
         when(tokenService.loadLoginUser(2L)).thenReturn(loginUser);
 
         UserLoginDTO dto = new UserLoginDTO();

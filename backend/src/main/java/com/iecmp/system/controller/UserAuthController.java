@@ -49,11 +49,11 @@ public class UserAuthController {
     /**
      * 1-03 退出登录。
      *
-     * <p>{@code POST /user/logout} —— 注销当前令牌，令牌写入 Redis 黑名单直至自然过期
+     * <p>{@code POST /user/logout} —— 注销当前令牌，令牌写入本地黑名单直至自然过期
      *
      * <p>权限：登录即可；令牌：是。
      */
-    @Operation(summary = "1-03 退出登录", description = "注销当前令牌，令牌写入 Redis 黑名单直至自然过期")
+    @Operation(summary = "1-03 退出登录", description = "注销当前令牌，令牌写入本地黑名单直至自然过期")
     @OperLog(module = "用户端-登录与令牌", value = "退出登录")
     @PostMapping("/user/logout")
     public Result<Void> postLogout(HttpServletRequest request) {

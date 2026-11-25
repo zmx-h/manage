@@ -15,7 +15,7 @@ import javax.imageio.ImageIO;
  * 图形验证码生成（接口文档 8-13）。
  *
  * <p>不引入第三方验证码库：直接用 {@code java.awt} 绘制 4 位字符，
- * 返回 Base64 图片字符串与答案，答案由调用方写入 Redis（TTL 300 秒、一次性使用）。
+ * 返回 Base64 图片字符串与答案，答案由调用方写入本地缓存（TTL 300 秒、一次性使用）。
  *
  * <p>注意：容器需要以 headless 模式运行（{@code java.awt.headless=true}，
  * 已在 application.yml 中设置），否则 AWT 初始化会失败。

@@ -85,9 +85,6 @@ public class RepoProperties {
         /** 定时采集 cron，默认每日 01:00；同时用于计算接口 2-06 的 {@code nextSyncTime}。 */
         private String cron = "0 0 1 * * ?";
 
-        /** 单次采集的分布式锁 TTL（秒），超时自动释放，避免进程崩溃后永久占锁。 */
-        private long lockTtlSeconds = 1800L;
-
         /** 相邻两次第三方请求之间的间隔（毫秒），按仓库维度串行限流。 */
         private long requestIntervalMs = 200L;
 

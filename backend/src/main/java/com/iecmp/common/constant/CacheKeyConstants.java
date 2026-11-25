@@ -1,7 +1,7 @@
 package com.iecmp.common.constant;
 
 /**
- * Redis Key 常量（架构文档 4.5 节）。
+ * 本地缓存 Key 常量（架构文档 4.5 节）。
  *
  * <p>所有 Key 统一以 {@code iecmp:} 开头；计数类 Key 一律带 TTL，避免无限增长。
  */
@@ -27,14 +27,6 @@ public final class CacheKeyConstants {
 
     /** 验证码同 IP 限流：{@code iecmp:limit:captcha:{ip}}，10 次/分钟。 */
     public static final String LIMIT_CAPTCHA_PREFIX = "iecmp:limit:captcha:";
-
-    /**
-     * 代码仓库采集互斥锁：{@code iecmp:repo:sync:lock}。
-     *
-     * <p>架构文档 4.6 节实现要点 1：多实例部署时必须保证同一时刻只有一个实例在采集，
-     * 用 Redis {@code SETNX} 实现；定时任务与接口 2-17 手动补采共用同一把锁。
-     */
-    public static final String REPO_SYNC_LOCK = "iecmp:repo:sync:lock";
 
     /** 各类 TTL（秒）。 */
     public static final long CAPTCHA_TTL_SECONDS = 300L;

@@ -1,9 +1,9 @@
 -- ============================================================================
 --  IECMP 创业中心管理平台 · 初始数据脚本
 -- ----------------------------------------------------------------------------
---  生成来源 ：IECMP-数据库设计.md（V1.2 第 4 章）—— 本文件由文档生成，请勿单独修改
+--  生成来源 ：IECMP-数据库设计.md（V1.3 第 4 章）—— 本文件由文档生成，请勿单独修改
 --  数据库   ：MySQL 8.0+ / InnoDB / utf8mb4 / utf8mb4_general_ci
---  前置条件 ：必须先执行 IECMP-数据库建表脚本.sql（36 张表已建好）
+--  前置条件 ：必须先执行 IECMP-数据库建表脚本.sql（37 张表已建好）
 --  内容     ：4.1 内置角色 → 4.2 超级管理员账号 → 4.3 权限码与角色授权 → 4.4 数据字典
 --  幂等说明 ：全部写入语句使用 INSERT IGNORE，可反复执行；重复执行不会产生
 --            重复数据，也不会报唯一键冲突，只会把「新增但缺失」的数据补上。
@@ -56,6 +56,7 @@ INSERT INTO `tmp_perm` (`code`, `grp`) VALUES
 ('system:role:remove','system'), ('system:role:auth','system'),
 ('system:register:list','system'), ('system:register:audit','system'),
 ('system:invite:list','system'), ('system:invite:add','system'), ('system:invite:remove','system'),
+('system:recruit:list','system'), ('system:recruit:assess','system'), ('system:recruit:send','system'),
 ('system:log:list','system'),
 -- 模块二 代码仓库关联
 ('repo:account:list','repo'), ('repo:stat:list','repo'), ('repo:sync:list','repo'), ('repo:sync:exec','repo'),
@@ -185,6 +186,10 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 -- 注册申请状态
 ('registerApplyStatus','待审核',0,1,NULL), ('registerApplyStatus','已通过',1,2,NULL),
 ('registerApplyStatus','已驳回',2,3,NULL),
+-- 招新报名状态
+('recruitApplyStatus','待考核',0,1,NULL), ('recruitApplyStatus','已通过待发码',1,2,NULL),
+('recruitApplyStatus','未通过',2,3,NULL), ('recruitApplyStatus','已发码',3,4,NULL),
+('recruitApplyStatus','已注册',4,5,NULL), ('recruitApplyStatus','注册码已过期',5,6,NULL),
 -- 公告状态
 ('noticeStatus','草稿',0,1,NULL), ('noticeStatus','已发布',1,2,NULL), ('noticeStatus','已下架',2,3,NULL);
 
@@ -192,19 +197,19 @@ INSERT IGNORE INTO `sys_dict` (`dict_type`, `dict_label`, `dict_value`, `sort_no
 --  自检（可选执行，仅查询、不写数据）
 -- ============================================================================
 
--- 应返回 36
+-- 应返回 37
 SELECT COUNT(*) AS table_count FROM information_schema.tables
 WHERE table_schema = 'iecmp';
 
 -- 应返回 4 个角色
 SELECT role_code, role_name, data_scope FROM sys_role ORDER BY sort_no;
 
--- SUPER_ADMIN 应为 85
+-- SUPER_ADMIN 应为 88
 SELECT r.role_code, COUNT(*) AS perm_count
 FROM sys_role r JOIN sys_role_permission p ON p.role_id = r.id
 WHERE p.deleted = 0
 GROUP BY r.role_code
 ORDER BY perm_count DESC;
 
--- 应为 23 个类型、91 条
+-- 应为 24 个类型、97 条
 SELECT COUNT(DISTINCT dict_type) AS type_count, COUNT(*) AS item_count FROM sys_dict WHERE deleted = 0;

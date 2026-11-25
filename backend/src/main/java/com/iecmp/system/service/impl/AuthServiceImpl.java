@@ -1,6 +1,7 @@
 package com.iecmp.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.exception.BusinessException;
@@ -24,7 +25,6 @@ import com.iecmp.system.vo.TokenRefreshVO;
 import com.iecmp.system.vo.UserLoginVO;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -33,7 +33,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 认证与令牌业务实现。
@@ -50,7 +49,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysUserService sysUserService;
     private final TokenService tokenService;
     private final JwtProperties jwtProperties;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final LocalCacheStore cacheStore;
 
     @Override
     public AdminLoginVO loginAdmin(AdminLoginDTO dto) {
@@ -151,6 +150,7 @@ public class AuthServiceImpl implements AuthService {
         vo.setRealName(user.getRealName());
         vo.setStudentNo(user.getStudentNo());
         vo.setGrade(user.getGrade());
+        vo.setClassName(user.getClassName());
         vo.setMajor(user.getMajor());
         vo.setPhone(user.getPhone());
         vo.setEmail(user.getEmail());
@@ -192,7 +192,7 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException(SystemErrorCode.E10008.getCode(), SystemErrorCode.E10008.getMsg());
             }
             patch.setPhone(phone);
-            changed = phone != null;
+            changed = true;
         }
         if (dto.getEmail() != null) {
             String email = trimToNull(dto.getEmail());
@@ -204,7 +204,15 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException(SystemErrorCode.E10009.getCode(), SystemErrorCode.E10009.getMsg());
             }
             patch.setEmail(email);
-            changed = email != null;
+            changed = true;
+        }
+        if (dto.getClassName() != null) {
+            String className = trimToNull(dto.getClassName());
+            if (className != null && className.length() > 50) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "班级最长 50 字");
+            }
+            patch.setClassName(className);
+            changed = true;
         }
         if (dto.getAvatarUrl() != null) {
             patch.setAvatarUrl(trimToNull(dto.getAvatarUrl()));
@@ -271,7 +279,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(SystemErrorCode.E10003.getCode(), SystemErrorCode.E10003.getMsg());
         }
 
-        stringRedisTemplate.delete(failKey);
+        cacheStore.delete(failKey);
         LocalDateTime loginTime = LocalDateTime.now();
         SysUser patch = new SysUser();
         patch.setId(user.getId());
@@ -299,33 +307,29 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(captchaKey) || !StringUtils.hasText(captchaCode)) {
             throw new BusinessException(SystemErrorCode.E10004.getCode(), SystemErrorCode.E10004.getMsg());
         }
-        String redisKey = CacheKeyConstants.CAPTCHA_PREFIX + captchaKey.trim();
-        String expected = stringRedisTemplate.opsForValue().get(redisKey);
-        stringRedisTemplate.delete(redisKey);
+        String cacheKey = CacheKeyConstants.CAPTCHA_PREFIX + captchaKey.trim();
+        String expected = cacheStore.get(cacheKey);
+        cacheStore.delete(cacheKey);
         if (expected == null || !expected.equalsIgnoreCase(captchaCode.trim())) {
             throw new BusinessException(SystemErrorCode.E10004.getCode(), SystemErrorCode.E10004.getMsg());
         }
     }
 
     private boolean loginLocked(String failKey) {
-        String value = stringRedisTemplate.opsForValue().get(failKey);
+        String value = cacheStore.get(failKey);
         if (!StringUtils.hasText(value)) {
             return false;
         }
         try {
             return Integer.parseInt(value) >= CacheKeyConstants.LOGIN_FAIL_MAX_TIMES;
         } catch (NumberFormatException e) {
-            stringRedisTemplate.delete(failKey);
+            cacheStore.delete(failKey);
             return false;
         }
     }
 
     private long recordLoginFailure(String failKey) {
-        Long count = stringRedisTemplate.opsForValue().increment(failKey);
-        if (count != null && count == 1L) {
-            stringRedisTemplate.expire(failKey, CacheKeyConstants.LOGIN_FAIL_TTL_SECONDS, TimeUnit.SECONDS);
-        }
-        return count == null ? 0L : count;
+        return cacheStore.increment(failKey, CacheKeyConstants.LOGIN_FAIL_TTL_SECONDS);
     }
 
     private boolean canLoginAdmin(LoginUser loginUser) {

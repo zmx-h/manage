@@ -2,7 +2,7 @@ package com.iecmp.repo;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.iecmp.common.constant.CacheKeyConstants;
+import com.iecmp.common.cache.LocalSyncLock;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.repo.client.RepoApiException;
 import com.iecmp.repo.client.RepoPlatformClient;
@@ -34,9 +34,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.script.RedisScript;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,9 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -57,15 +52,13 @@ import static org.mockito.Mockito.when;
 /**
  * 接口 2-17 采集调度与 2-02 异步触发的单元测试。
  *
- * <p>采集链路依赖 Redis 分布式锁与第三方平台，集成测试覆盖不到，这里用 Mockito 断言：
+ * <p>采集链路依赖进程内锁与第三方平台，集成测试覆盖不到，这里用 Mockito 断言：
  * 抢不到锁返回 20006、锁一定会被释放、单个账户失败不影响整体计数、
  * 失败原因会成对写进同步日志。
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class RepoSyncServiceTest {
-
-    private static final String LOCK_KEY = CacheKeyConstants.REPO_SYNC_LOCK;
 
     @Mock
     private RepoAccountMapper accountMapper;
@@ -80,13 +73,10 @@ class RepoSyncServiceTest {
     @Mock
     private RepoTokenCipher tokenCipher;
     @Mock
-    private StringRedisTemplate redis;
-    @Mock
-    private ValueOperations<String, String> valueOps;
-    @Mock
     private RepoPlatformClient client;
 
     private RepoProperties properties;
+    private LocalSyncLock syncLock;
     private RepoSyncServiceImpl service;
 
     /**
@@ -108,10 +98,10 @@ class RepoSyncServiceTest {
         properties = new RepoProperties();
         // 测试里不要真的 sleep
         properties.getSync().setRequestIntervalMs(0);
-        when(redis.opsForValue()).thenReturn(valueOps);
+        syncLock = new LocalSyncLock();
 
         service = new RepoSyncServiceImpl(accountMapper, projectMapper, commitMapper, syncLogMapper,
-                clientRegistry, tokenCipher, properties, redis);
+                clientRegistry, tokenCipher, properties, syncLock);
     }
 
     // ------------------------------------------------------------------ 锁
@@ -119,12 +109,15 @@ class RepoSyncServiceTest {
     @Test
     @DisplayName("2-17 手动补采：抢不到锁返回 20006，且不访问数据库")
     void manualSyncLocked() {
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(false);
-
-        assertThatThrownBy(() -> service.syncAccounts(List.of(201L), false, SyncTypeEnum.MANUAL))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getCode())
-                        .isEqualTo(RepoErrorCode.E20006.getCode()));
+        syncLock.tryAcquire();
+        try {
+            assertThatThrownBy(() -> service.syncAccounts(List.of(201L), false, SyncTypeEnum.MANUAL))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                            .isEqualTo(RepoErrorCode.E20006.getCode()));
+        } finally {
+            syncLock.release();
+        }
 
         verify(accountMapper, never()).selectList(any());
     }
@@ -132,7 +125,6 @@ class RepoSyncServiceTest {
     @Test
     @DisplayName("2-17 手动补采：执行完一定释放锁（含抛异常的情况）")
     void lockReleasedEvenOnFailure() {
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.syncAccounts(List.of(201L), false, SyncTypeEnum.MANUAL))
@@ -140,28 +132,34 @@ class RepoSyncServiceTest {
                 .satisfies(e -> assertThat(((BusinessException) e).getCode())
                         .isEqualTo(RepoErrorCode.E20008.getCode()));
 
-        verify(redis).execute(any(RedisScript.class), eq(List.of(LOCK_KEY)), anyString());
+        assertThat(syncLock.tryAcquire()).isTrue();
+        syncLock.release();
     }
 
     @Test
     @DisplayName("定时采集：锁被占用时静默跳过，不打断调度线程")
     void scheduledSkipsWhenLocked() {
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(false);
-
-        assertThatCode(() -> service.syncAllScheduled()).doesNotThrowAnyException();
+        syncLock.tryAcquire();
+        try {
+            assertThatCode(() -> service.syncAllScheduled()).doesNotThrowAnyException();
+        } finally {
+            syncLock.release();
+        }
 
         verify(accountMapper, never()).selectList(any());
-        verify(redis, never()).execute(any(RedisScript.class), anyList(), anyString());
     }
 
     @Test
     @DisplayName("绑定后的异步采集：锁被占用时直接跳过，不抛异常")
     void triggerAsyncSkipsWhenLocked() {
         when(accountMapper.selectById(201L)).thenReturn(account(201L));
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(false);
-
-        assertThatCode(() -> service.triggerAsync(201L, true, SyncTypeEnum.SCHEDULED))
-                .doesNotThrowAnyException();
+        syncLock.tryAcquire();
+        try {
+            assertThatCode(() -> service.triggerAsync(201L, true, SyncTypeEnum.SCHEDULED))
+                    .doesNotThrowAnyException();
+        } finally {
+            syncLock.release();
+        }
 
         verify(projectMapper, never()).selectList(any());
     }
@@ -174,8 +172,8 @@ class RepoSyncServiceTest {
         assertThatCode(() -> service.triggerAsync(999L, true, SyncTypeEnum.SCHEDULED))
                 .doesNotThrowAnyException();
 
-        // 账户不存在时连锁都不用抢
-        verify(valueOps, never()).setIfAbsent(anyString(), anyString(), any());
+        // 账户不存在时直接返回，不会访问仓库表
+        verify(projectMapper, never()).selectList(any());
     }
 
     // ------------------------------------------------------------------ 采集
@@ -185,7 +183,6 @@ class RepoSyncServiceTest {
     void syncSuccess() {
         RepoAccount account = account(201L);
         RepoProject project = project(301L, 201L, "repo-a", "owner");
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of(account));
         when(tokenCipher.decrypt("ENC")).thenReturn("tok");
         when(clientRegistry.get("github")).thenReturn(client);
@@ -228,7 +225,6 @@ class RepoSyncServiceTest {
     @DisplayName("2-17 采集失败：账户置采集失败、写失败日志，整体结果计入 failCount")
     void syncFailureWritesLog() {
         RepoAccount account = account(201L);
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of(account));
         when(tokenCipher.decrypt("ENC")).thenReturn("tok");
         when(clientRegistry.get("github")).thenReturn(client);
@@ -256,7 +252,6 @@ class RepoSyncServiceTest {
         assertThat(log.getValue().getSyncResult()).isZero();
         assertThat(log.getValue().getErrorMsg()).contains("令牌无效").contains("401");
 
-        verify(redis).execute(any(RedisScript.class), eq(List.of(LOCK_KEY)), anyString());
     }
 
     @Test
@@ -267,7 +262,6 @@ class RepoSyncServiceTest {
         RepoCommit known = new RepoCommit();
         known.setCommitSha("aaaa0001");
 
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of(account));
         when(tokenCipher.decrypt("ENC")).thenReturn("tok");
         when(clientRegistry.get("github")).thenReturn(client);
@@ -288,7 +282,6 @@ class RepoSyncServiceTest {
     @DisplayName("2-17 采集：令牌解不开时按令牌失效处理，不发起任何第三方调用")
     void syncRejectsUndecryptableToken() {
         RepoAccount account = account(201L);
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of(account));
         when(tokenCipher.decrypt("ENC")).thenReturn(null);
 
@@ -306,7 +299,6 @@ class RepoSyncServiceTest {
         account.setLastSyncTime(LocalDateTime.of(2026, 3, 1, 2, 0, 0));
         RepoProject project = project(301L, 201L, "repo-a", "owner");
 
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of(account));
         when(tokenCipher.decrypt("ENC")).thenReturn("tok");
         when(clientRegistry.get("github")).thenReturn(client);
@@ -327,7 +319,6 @@ class RepoSyncServiceTest {
     @Test
     @DisplayName("2-17 账号范围：没有有效账户时定时采集自行吞掉异常并释放锁")
     void scheduledOnlyResolvesActiveAccounts() {
-        when(valueOps.setIfAbsent(eq(LOCK_KEY), anyString(), any())).thenReturn(true);
         when(accountMapper.selectList(any())).thenReturn(List.of());
 
         // 定时任务不能把异常抛给调度线程
@@ -335,7 +326,8 @@ class RepoSyncServiceTest {
 
         // 无 ID 时按「全部有效账户」查询，空结果对应的 20008 由调度入口自己消化
         verify(accountMapper).selectList(any());
-        verify(redis).execute(any(RedisScript.class), eq(List.of(LOCK_KEY)), anyString());
+        assertThat(syncLock.tryAcquire()).isTrue();
+        syncLock.release();
     }
 
     // ------------------------------------------------------------------ helpers

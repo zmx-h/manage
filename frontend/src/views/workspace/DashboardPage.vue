@@ -8,7 +8,10 @@
         />{{ date }}
       </div>
     </div>
-    <section class="welcome-banner">
+    <section
+      v-if="side === 'admin'"
+      class="welcome-banner"
+    >
       <div>
         <span class="banner-badge"><i />{{ t('brand') }}</span><h2>{{ pair('把日常理顺，让创造发生。', 'Less busywork. More possibility.') }}</h2><p>{{ pair('从今天的值日到下一次突破，你的中心事务，尽在此处。', 'From everyday duties to your next breakthrough. Everything, in one place.') }}</p><router-link
           :to="quickActions[0] ? link(quickActions[0]) : '#'"
@@ -49,7 +52,81 @@
       :closable="false"
       show-icon
     />
+    <section
+      v-if="side === 'user'"
+      class="home-overview"
+    >
+      <div class="panel home-notices">
+        <div class="panel-heading">
+          <h3>{{ pair('公告','Notices') }}</h3>
+          <span class="soft-badge">{{ pair('最新发布','Latest') }}</span>
+        </div>
+        <div
+          v-if="notices.length"
+          class="home-notice-list"
+        >
+          <article
+            v-for="notice in notices"
+            :key="notice.noticeId"
+          >
+            <div class="notice-title">
+              <el-tag
+                v-if="notice.isTop === 1"
+                size="small"
+                type="danger"
+              >
+                {{ pair('置顶','Pinned') }}
+              </el-tag>
+              <b>{{ notice.title }}</b>
+              <small>{{ notice.publishTime?.slice(0,10) }}</small>
+            </div>
+            <p>{{ plainText(notice.content) }}</p>
+          </article>
+        </div>
+        <div
+          v-else
+          class="compact-empty horizontal"
+        >
+          <span class="empty-mini"><AppIcon
+            name="file"
+            :size="28"
+          /></span><div><b>{{ t('noNotice') }}</b><small>{{ t('greeting') }}</small></div>
+        </div>
+      </div>
+      <div class="panel home-heatmap">
+        <div class="panel-heading">
+          <h3>{{ pair('贡献热力图','Contribution heatmap') }}</h3>
+          <span class="soft-badge">{{ heatmap?.year || new Date().getFullYear() }}</span>
+        </div>
+        <div
+          v-if="heatmap?.cells?.length"
+          class="heatmap"
+        >
+          <div
+            v-for="cell in heatmap.cells"
+            :key="cell.date"
+            class="heatmap-cell"
+            :class="`level-${cell.level}`"
+            :title="`${cell.date}: ${cell.count}`"
+          />
+        </div>
+        <div
+          v-else
+          class="compact-empty"
+        >
+          <AppIcon
+            name="code"
+            :size="30"
+          /><b>{{ t('noContribution') }}</b>
+        </div>
+        <div class="heatmap-meta">
+          <span>{{ pair('累计提交','Total commits') }}<b>{{ heatmap?.totalCommits ?? '—' }}</b></span>
+          <span>{{ pair('活跃天数','Active days') }}<b>{{ heatmap?.activeDays ?? '—' }}</b></span>
+        </div>
+      </div>
+    </section>
     <div
+      v-if="side === 'admin'"
       v-loading="loading"
       class="stats-grid"
     >
@@ -170,10 +247,13 @@
           </div>
         </template>
       </section>
-      <section class="panel notice-panel">
+      <section
+        v-if="side === 'admin'"
+        class="panel notice-panel"
+      >
         <div class="panel-heading">
-          <h3>{{ t(side === 'admin' ? 'dutyToday' : 'activity') }}</h3><router-link
-            :to="link(pages.find(p => p.key === (side === 'admin' ? 'admin-duty-schedule' : 'user-notice')))"
+          <h3>{{ t('dutyToday') }}</h3><router-link
+            :to="link(pages.find(p => p.key === 'admin-duty-schedule'))"
             class="subtle-link"
           >
             {{ t('viewAll') }} ↗
@@ -221,8 +301,7 @@
       <span
         class="tiny-dot"
         :class="{ live: data }"
-      /><span>{{ t('service') }}</span><strong>{{ preview ? t('safePreview') : data ? t('connected') : t('waiting') }}</strong><button
-        :disabled="preview"
+      /><span>{{ t('service') }}</span><strong>{{ data ? t('connected') : t('waiting') }}</strong><button
         @click="reload"
       >
         {{ t('refresh') }}<AppIcon
@@ -234,21 +313,28 @@
   </div>
 </template>
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { invoke, normalizedList, plainText } from '@/api/client'
 import { useLocale } from '@/locales'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { useResource } from '@/composables/useResource'
 import { useUserStore } from '@/store/modules/user'
 import { pages } from '@/config/navigation'
 import AppIcon from '@/components/common/AppIcon.vue'
-const { t, pair, isEn } = useLocale(); const { preview, side, link } = useWorkspace(); const user = useUserStore(); const { data, loading, error, load } = useResource()
+const { t, pair, isEn } = useLocale(); const { side, link } = useWorkspace(); const user = useUserStore(); const { data, loading, error, load } = useResource()
 const date = computed(() => new Intl.DateTimeFormat(isEn.value ? 'en-US' : 'zh-CN',{ month:'long', day:'numeric', weekday:'short', timeZone:'Asia/Shanghai' }).format(new Date()))
-const quickActions = computed(() => (side.value === 'admin' ? ['admin-system-user','admin-budget-apply','admin-asset','admin-seat-plan','admin-duty-plan','admin-honor-audit'] : ['user-budget-apply','user-asset','user-seat','user-duty','user-repo','user-message']).map(key => pages.find(p => p.key === key)).filter(p => preview.value || user.hasPerm(p.permission)))
+const quickActions = computed(() => (side.value === 'admin' ? ['admin-system-user','admin-budget-apply','admin-asset','admin-seat-plan','admin-duty-plan','admin-honor-audit'] : ['user-budget-apply','user-asset','user-seat','user-duty','user-repo']).map(key => pages.find(p => p.key === key)).filter(p => user.hasPerm(p.permission)))
 const stats = computed(() => side.value === 'admin' ? [{label:'totalMembers',value:data.value?.userCount,icon:'users',color:'blue'},{label:'totalAssets',value:data.value?.assetStat?.total,icon:'box',color:'amber'},{label:'usedBudget',value:data.value?.budgetStat ? money(data.value.budgetStat.usedAmount) : undefined,icon:'wallet',color:'purple'},{label:'monthCommits',value:data.value?.repoCommitCountThisMonth,icon:'code',color:'green'}] : [{label:'monthCommits',value:data.value?.commitCountThisMonth,icon:'code',color:'blue'},{label:'borrowing',value:data.value?.borrowingCount,icon:'box',color:'amber'},{label:'pendingBudget',value:data.value?.budgetApplyPending,icon:'wallet',color:'purple'},{label:'unread',value:data.value?.unreadMsgCount,icon:'bell',color:'green'}])
 const budgetPercent = computed(() => Math.min(100,Math.max(0,Number(data.value?.budgetStat?.executionRate || 0))))
 const todoPages = {budgetApply:'admin-budget-apply',assetBorrow:'admin-asset-borrow',seatApply:'admin-seat-apply',seatSwap:'admin-seat-swap',honorAudit:'admin-honor-audit',registerApply:'admin-system-register'}
-const todos = computed(() => Object.entries(data.value?.pendingTodo || {}).filter(([key,count]) => count > 0 && todoPages[key]).map(([key,count]) => ({key,count,page:pages.find(p => p.key === todoPages[key])})).filter(item => preview.value || user.hasPerm(item.page.permission)))
+const todos = computed(() => Object.entries(data.value?.pendingTodo || {}).filter(([key,count]) => count > 0 && todoPages[key]).map(([key,count]) => ({key,count,page:pages.find(p => p.key === todoPages[key])})).filter(item => user.hasPerm(item.page.permission)))
 function money(value) { return value === undefined ? '—' : new Intl.NumberFormat(isEn.value ? 'en-US' : 'zh-CN',{style:'currency',currency:'CNY',maximumFractionDigits:2}).format(value) }
-const reload = () => load(side.value === 'admin' ? '8-11' : '8-10', {}, preview.value)
-watch([side,preview], reload, {immediate:true})
+const reload = () => load(side.value === 'admin' ? '8-11' : '8-10')
+const notices = ref([]); const heatmap = ref(null)
+async function loadHome() {
+  if (side.value !== 'user') return
+  try { notices.value = normalizedList(await invoke('8-05', { pageNum: 1, pageSize: 5 })) } catch { notices.value = [] }
+  try { heatmap.value = await invoke('2-11', { year: new Date().getFullYear() }) } catch { heatmap.value = null }
+}
+watch(side, () => { reload(); loadHome() }, {immediate:true})
 </script>

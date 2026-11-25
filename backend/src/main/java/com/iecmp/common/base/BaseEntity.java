@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 /**
  * 实体公共父类：主键 + 审计字段。
  *
- * <p>除 {@code sys_oper_log} 外，全库 36 张表中的 35 张都包含这 6 个字段，
+ * <p>除 {@code sys_oper_log} 外，全库 37 张表中的 36 张都包含这 6 个字段，
  * 因此统一由本类承载，各实体只声明自己的业务字段。{@code sys_oper_log}
  * 没有审计字段（见《数据库设计》），单独实现，不继承本类。
  *

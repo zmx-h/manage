@@ -62,6 +62,12 @@ public class SysUser extends BaseEntity {
     private String grade;
 
     /**
+     * 班级。
+     */
+    @TableField("class_name")
+    private String className;
+
+    /**
      * 专业。
      */
     @TableField("major")

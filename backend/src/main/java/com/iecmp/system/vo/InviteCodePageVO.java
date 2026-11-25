@@ -24,12 +24,8 @@ public class InviteCodePageVO implements Serializable {
     @Schema(description = "邀请码，8 位大写字母数字")
     private String code;
 
-    /** 可用次数 */
-    @Schema(description = "可用次数")
-    private Integer maxUseCount;
-
-    /** 已使用次数 */
-    @Schema(description = "已使用次数")
+    /** 使用状态：0 未使用，1 已使用 */
+    @Schema(description = "使用状态：0 未使用，1 已使用")
     private Integer usedCount;
 
     /** 过期时间，为空表示长期有效 */

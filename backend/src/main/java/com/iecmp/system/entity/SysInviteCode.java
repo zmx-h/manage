@@ -32,13 +32,7 @@ public class SysInviteCode extends BaseEntity {
     private String code;
 
     /**
-     * 可用次数。
-     */
-    @TableField("max_use_count")
-    private Integer maxUseCount;
-
-    /**
-     * 已使用次数。
+     * 使用状态：0 未使用，1 已使用。邀请码一次性，使用后不可再注册。
      */
     @TableField("used_count")
     private Integer usedCount;

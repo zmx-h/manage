@@ -42,6 +42,9 @@ public class OperLogAspect {
     /** 请求参数字符串上限，与 {@code sys_oper_log.request_param} 字段长度一致。 */
     private static final int PARAM_MAX_LENGTH = 2000;
 
+    /** 返回信息字符串上限，与 {@code sys_oper_log.response_msg} 字段长度一致。 */
+    private static final int RESPONSE_MAX_LENGTH = 500;
+
     private final SysOperLogService sysOperLogService;
     private final ObjectMapper objectMapper;
 
@@ -89,8 +92,15 @@ public class OperLogAspect {
         if (operLog.saveParam()) {
             entity.setRequestParam(serializeArgs(joinPoint.getArgs()));
         }
-        entity.setResponseMsg(error == null ? "success" : error.getMessage());
+        entity.setResponseMsg(truncate(error == null ? "success" : error.getMessage(), RESPONSE_MAX_LENGTH));
         return entity;
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 
     /**
@@ -114,7 +124,7 @@ public class OperLogAspect {
         for (String key : SENSITIVE_KEYS) {
             json = json.replaceAll("\"" + key + "\"\\s*:\\s*\"[^\"]*\"", "\"" + key + "\":\"***\"");
         }
-        return json.length() > PARAM_MAX_LENGTH ? json.substring(0, PARAM_MAX_LENGTH) : json;
+        return truncate(json, PARAM_MAX_LENGTH);
     }
 
     private void saveQuietly(SysOperLog entity) {

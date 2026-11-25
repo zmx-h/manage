@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.ResultCode;
@@ -13,12 +14,10 @@ import com.iecmp.commonm.service.SysDictService;
 import com.iecmp.commonm.vo.DictDetailVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /** 数据字典业务实现（{@code sys_dict}）。 */
 @Slf4j
@@ -29,7 +28,7 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict>
 
     private static final TypeReference<List<DictDetailVO>> TYPE = new TypeReference<>() { };
 
-    private final StringRedisTemplate redisTemplate;
+    private final LocalCacheStore cacheStore;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -40,7 +39,7 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict>
         String normalized = type.trim();
         String cacheKey = CacheKeyConstants.DICT_PREFIX + normalized;
         try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
+            String cached = cacheStore.get(cacheKey);
             if (StringUtils.hasText(cached)) {
                 return objectMapper.readValue(cached, TYPE);
             }
@@ -63,8 +62,8 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict>
                 .toList();
 
         try {
-            redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(result),
-                    CacheKeyConstants.DICT_TTL_SECONDS, TimeUnit.SECONDS);
+            cacheStore.set(cacheKey, objectMapper.writeValueAsString(result),
+                    CacheKeyConstants.DICT_TTL_SECONDS);
         } catch (Exception e) {
             log.warn("写入字典缓存失败: {}", normalized, e);
         }

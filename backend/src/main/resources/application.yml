@@ -35,6 +35,26 @@ spring:
   web:
     resources:
       add-mappings: false
+  # --------------------------------------------------------------------------
+  #  邮件：招新注册码通知。账号 / 授权码通过环境变量注入，不要写进仓库。
+  #  QQ 邮箱使用 SMTP 授权码（不是登录密码），端口 587 + STARTTLS。
+  # --------------------------------------------------------------------------
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_AUTH_CODE:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -107,6 +127,8 @@ iecmp:
       - /user/login
       - /user/token/refresh
       - /user/register
+      - /common/recruit/apply
+      - /common/register/recruit
       - /common/register/config
       - /common/register/apply
       - /common/dict/**
@@ -130,9 +152,21 @@ iecmp:
   # 注册入口开关（接口 1-22）：部署配置，不落数据库
   register:
     invite-enabled: 1
-    apply-enabled: 1
+    apply-enabled: 0
     captcha-enabled: 0
     tips: "仅限创业中心内部成员使用"
+
+  # 招新报名与邮箱注册码（接口 1-30 ~ 1-35）
+  recruit:
+    enabled: 1                     # 1 开放外部招新网页报名，0 关闭
+    code-expire-hours: 24          # 注册码有效期（小时）
+    code-max-attempts: 5           # 单个注册码允许的连续输错次数
+    code-resend-seconds: 60        # 同一报名记录两次发码的最小间隔（秒）
+    apply-limit-per-hour: 5        # 同一 IP 每小时最多提交报名次数
+    pass-score: 60                 # 默认通过分
+    code-pepper: ${RECRUIT_CODE_PEPPER:dev-only-change-me}
+    mail-enabled: 0                # 1 实际发信；0 只写日志，便于本地联调
+    mail-from-name: IECMP 创业中心
 
 # ----------------------------------------------------------------------------
 #  模块二：代码仓库关联（架构文档 7.3 节 / 接口文档第 8 章）
@@ -149,7 +183,6 @@ repo:
 
   sync:
     cron: "0 0 1 * * ?"           # 每日 01:00；同时用于计算接口 2-06 的 nextSyncTime
-    lock-ttl-seconds: 1800        # 采集分布式锁 TTL，进程崩溃后自动释放
     request-interval-ms: 200      # 相邻两次第三方请求的间隔，按仓库维度串行限流
     commit-detail: true           # 是否再查一次提交详情补齐增删行数；关闭后 add_lines/del_lines 恒为 0
     max-pages: 20                 # 单个列表接口最多翻页数，防异常分页死循环

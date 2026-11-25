@@ -8,7 +8,7 @@
 | 文档版本 | V1.2 |
 | 编写日期 | 2026-09-22 |
 | 编写人员 | 后端组 |
-| 后端技术栈 | Spring Boot + MyBatis-Plus + MySQL 8 + Redis |
+| 后端技术栈 | Spring Boot + MyBatis-Plus + MySQL 8 |
 | 前端技术栈 | Vue 3 + Axios |
 | 基础设施 | 阿里云 OSS（对象存储）+ Jellyfin（媒体服务）+ FRP（内网穿透）+ Nginx |
 | 关联文档 | 《IECMP-接口开发文档-v1.6.md》《IECMP-数据库设计.md》 |
@@ -21,6 +21,7 @@
 | 2026-09-24 | V1.3 | 交付可运行骨架：`backend/`（Spring Boot 3.3.8 + MyBatis-Plus 3.5.7 + Redis；540 个 Java 文件、54 个 Controller、186 个接口占位、36 套实体 / Mapper / Service）、`frontend/`（Vue 3 + Vite；83 个文件、48 个空壳页面、9 个接口模块清单）。实测：`mvn compile` 通过、应用启动成功并在 Swagger 输出 166 条路径 / 186 个操作、鉴权拦截器返回 401、初始密码哈希校验通过、`vite build` 与 `eslint` 通过 | 后端组 |
 | 2026-09-24 | V1.2 | 交付两个可直接执行的 SQL 脚本（`IECMP-数据库建表脚本.sql` 36 张表、`IECMP-初始数据.sql` 角色 / 管理员 / 85 个权限码 / 23 类字典），1.5 节文档关系表补充对应说明；脚本已在 MySQL 8.0.44 真机执行验证（见《数据库设计》V1.2 与 5.5.1 节） | 后端组 |
 | 2026-09-24 | V1.1 | 与接口文档 V1.4 对齐：接口总数 180 → **186**；模块五补充**管理端可拖拽平面图**能力、模块八补充**站内消息中心**、模块二明确**提交统计全自动采集（成员端无手动同步）**；4.6 定时任务补充「站内消息生成」一行；修正 `sys_sync_log` 笔误为 `repo_sync_log` | 后端组 |
+| 2026-11-25 | V1.7 | 去除 Redis：令牌黑名单、验证码、字典缓存、限流计数改为进程内 `LocalCacheStore`；仓库采集锁改为进程内信号量；健康检查字段 `redis` 改为 `cache` | 后端组 |
 
 > **文档定位**：本文档回答「这个系统是什么、由哪些技术组成、为什么这样选、关键机制怎么运转」。《接口开发文档》回答「每个接口怎么调」，《数据库设计》回答「数据怎么存」。三者以接口文档为接口契约的唯一权威来源。
 
@@ -81,7 +82,7 @@ IECMP 的目标就是把这 8 类事务收进一个平台，**让每一笔资金
 
 ### 1.4 功能范围
 
-平台划分为 8 个模块，共 **186 个接口**：
+平台划分为 8 个模块，共 **192 个接口**：
 
 | 编号 | 模块 | 表前缀 | 核心能力 | 接口数 |
 | --- | --- | --- | --- | --- |
@@ -119,7 +120,7 @@ IECMP 的目标就是把这 8 类事务收进一个平台，**让每一笔资金
 | 应用层 | Spring Boot + Spring MVC | REST 接口、参数校验、全局异常处理 |
 | 持久层 | MyBatis-Plus | 单表 CRUD、分页插件、逻辑删除、乐观锁 |
 | 数据库 | MySQL 8 | 业务数据持久化 |
-| 缓存 | Redis | 令牌黑名单、验证码、字典缓存、限流计数 |
+| 缓存 | 进程内缓存（`LocalCacheStore`） | 令牌黑名单、验证码、字典缓存、限流计数 |
 | 对象存储 | 阿里云 OSS | 图片、证书、凭证等文件存储 |
 | 媒体服务 | Jellyfin | 视频托管与播放链接生成 |
 | 内网穿透 | FRP | 将本地服务器映射到公网 |
@@ -145,16 +146,19 @@ IECMP 的目标就是把这 8 类事务收进一个平台，**让每一笔资金
 
 **MySQL 8 承担全部业务持久化**。选 8.x 的理由：原生支持窗口函数（预算执行率、贡献排行的分组统计）、CTE、更好的 JSON 支持（`asset_info.image_urls` 存 JSON 数组）。
 
-**Redis 用在四个场景，都不是「为了用而用」**：
+**单机部署不引入 Redis**。平台最多二三十人、单实例部署，下面四类数据都只在本进程内使用，
+用 JDK 自带的 `ConcurrentHashMap` 加过期时间戳实现（`LocalCacheStore`）即可，
+省掉一套中间件的安装、备份与监控成本：
 
-| 场景 | 数据结构 | 为什么必须用 Redis |
+| 场景 | 存储方式 | 说明 |
 | --- | --- | --- |
-| 令牌黑名单 | String + TTL | 退出登录 / 停用账号后要让令牌**立即失效**，而 JWT 本身无状态。黑名单条目随令牌自然过期，用 Redis TTL 最省事 |
-| 图形验证码 | String + TTL 300s | 验证码是一次性、5 分钟过期的短命数据，写 MySQL 会产生大量垃圾行 |
+| 令牌黑名单 | String + TTL | 退出登录后让令牌**立即失效**；JWT 本身无状态，条目随令牌剩余有效期自然过期 |
+| 图形验证码 | String + TTL 300s | 一次性、5 分钟过期的短命数据，写 MySQL 会产生大量垃圾行 |
 | 数据字典缓存 | String(JSON) + TTL 1h | 字典被所有下拉框高频读取，缓存后避免每次查库；枚举变更时后端主动清缓存 |
-| 限流计数 | String + INCR + TTL | 登录失败锁定、注册同 IP 每小时 3 次、验证码同 IP 每分钟 10 次，都是「计数 + 过期窗口」模型 |
+| 限流计数 | String + 原子自增 + TTL | 登录失败锁定、注册同 IP 每小时 3 次、验证码同 IP 每分钟 10 次，都是「计数 + 过期窗口」模型 |
 
-**不用 Redis 做会话存储**：令牌是无状态的，会话状态不需要额外保存。
+**边界与代价**：进程重启后缓存全部丢失，令牌黑名单随之清空、验证码需重新获取；
+若将来改为多实例部署，必须替换为 Redis 等外部共享存储。当前部署形态下这是可接受的取舍。
 
 ### 2.5 基础设施与第三方服务
 
@@ -194,7 +198,7 @@ IECMP 的目标就是把这 8 类事务收进一个平台，**让每一笔资金
 | 客户端层 | 页面渲染、交互、本地状态 | 管理端（Vue 3）、成员端（Vue 3）、移动端浏览器 |
 | 接入层 | 流量入口、协议转换、安全边界 | Nginx（HTTPS 终止、静态托管、反向代理）、FRP（公网映射） |
 | 应用层 | 业务逻辑、鉴权、参数校验、事务 | Spring Boot：控制器 → 服务 → 持久层；自定义鉴权拦截器；全局异常处理器；定时任务 |
-| 数据层 | 持久化、缓存、对象存储、媒体服务 | MySQL 8、Redis、阿里云 OSS、Jellyfin |
+| 数据层 | 持久化、缓存、对象存储、媒体服务 | MySQL 8、进程内缓存、阿里云 OSS、Jellyfin |
 
 ### 3.2 总体架构图
 
@@ -222,7 +226,7 @@ graph TB
 
     subgraph Data["数据层"]
         D1[("MySQL 8<br/>35 张业务表")]
-        D2[("Redis<br/>令牌黑名单 / 验证码 / 字典 / 限流")]
+        D2["进程内缓存<br/>令牌黑名单 / 验证码 / 字典 / 限流"]
         D3["阿里云 OSS<br/>图片·证书·凭证"]
         D4["Jellyfin<br/>视频托管与取流"]
     end
@@ -258,10 +262,8 @@ graph LR
     N -->|"/ → 静态产物"| S["前端 dist"]
     N -->|"/api/** → 反代"| B["Spring Boot :8080"]
     B --> MY[("MySQL 8 :3306")]
-    B --> RD[("Redis :6379")]
     B -->|"SDK 上传"| OS["阿里云 OSS"]
     U -->|"playUrl 直连"| JF["Jellyfin"]
-    RS["Redis"] -.-> RD
 
     style OS fill:#1e3a5f,stroke:#3d7ab8,color:#dbe9f8
     style JF fill:#3d2f5f,stroke:#7a5fb8,color:#e8e0f8
@@ -271,7 +273,7 @@ graph LR
 
 | 场景 | 链路 |
 | --- | --- |
-| 页面与接口 | 浏览器 → FRP → Nginx → 静态产物 / Spring Boot → MySQL / Redis |
+| 页面与接口 | 浏览器 → FRP → Nginx → 静态产物 / Spring Boot → MySQL（缓存随应用进程） |
 | 图片展示 | 浏览器 → **OSS 域名**（不经过平台后端） |
 | 视频播放 | 浏览器 → **Jellyfin 域名**（不经过平台后端） |
 | 文件上传 | 浏览器 → FRP → Nginx → Spring Boot → OSS（后端中转） |
@@ -329,7 +331,8 @@ com.iecmp
 │   ├── exception/              业务异常与全局异常处理器
 │   ├── interceptor/            鉴权拦截器
 │   ├── annotation/             自定义注解（@RequiresPerm / @Log）
-│   ├── config/                 配置类（Redis / MyBatis-Plus / OSS / CORS）
+│   ├── config/                 配置类（MyBatis-Plus / OSS / CORS）
+│   ├── cache/                  进程内缓存与采集锁（LocalCacheStore / LocalSyncLock）
 │   ├── enums/                  枚举与错误码
 │   └── util/                   工具类（JWT / Captcha / IpUtil）
 ├── system/                     模块一：用户与权限
@@ -375,7 +378,7 @@ sequenceDiagram
     participant U as 用户浏览器
     participant N as Nginx
     participant B as Spring Boot
-    participant R as Redis
+    participant R as 本地缓存
     participant M as MySQL
 
     U->>N: POST /admin/login {username, password, captcha}
@@ -407,9 +410,9 @@ sequenceDiagram
 
 **三个关键实现点**
 
-1. **黑名单只针对 accessToken**。JWT 是无状态的，签发后无法撤回，因此退出登录 / 停用账号时必须往 Redis 写一条「令牌 → 已失效」记录，TTL 设为该令牌的剩余有效期（过期后条目自动清理，不占空间）。拦截器每次请求先查黑名单。
+1. **黑名单只针对 accessToken**。JWT 是无状态的，签发后无法撤回，因此退出登录 / 停用账号时必须往本地缓存写一条「令牌 → 已失效」记录，TTL 设为该令牌的剩余有效期（过期后条目自动清理，不占空间）。拦截器每次请求先查黑名单。
 2. **停用账号要立即踢下线**。接口 `1-12 启用/禁用用户` 在把 `sys_user.status` 改为 0 的同时，将该用户**已签发但未过期的令牌**写入黑名单。否则「停用」只是一个数据库标记，用户手上的令牌还能继续用 2 小时。
-3. **登录保护**。同一账号 5 分钟内连续失败 5 次，锁定 10 分钟（Redis 计数 + TTL），返回错误码 `10005`。
+3. **登录保护**。同一账号 5 分钟内连续失败 5 次，锁定 10 分钟（本地缓存计数 + TTL），返回错误码 `10005`。
 
 ### 4.2 权限模型（RBAC + 数据范围）
 
@@ -566,7 +569,7 @@ graph LR
 
 **播放器**：若 Jellyfin 返回 HLS 播放列表（`.m3u8`），前端需引入支持 HLS 的播放器（如 `hls.js`）；若为直链 MP4，原生 `<video>` 即可。
 
-### 4.5 缓存设计（Redis）
+### 4.5 缓存设计（进程内）
 
 | Key 模式 | 数据结构 | TTL | 用途 | 失效时机 |
 | --- | --- | --- | --- | --- |
@@ -580,9 +583,9 @@ graph LR
 **设计原则**
 
 1. **缓存只放「读多写少 + 可容忍短暂不一致」的数据**。字典是典型；预算金额、资产状态这类涉及资金与实物的数据**不缓存**，每次查库，避免脏读。
-2. **计数类 Key 一律带 TTL**，用 `INCR` + `EXPIRE` 组合实现固定窗口限流，避免 Key 无限增长。
+2. **计数类 Key 一律带 TTL**，用原子自增 + 过期时间实现固定窗口限流，避免 Key 无限增长。
 3. **缓存失效要主动**：字典变更后由后端删除对应 Key（`8-04` 的说明中「枚举变更时由后端主动清理缓存」即指此事），不依赖 TTL 自然过期。
-4. **Redis 不可用时的降级**：黑名单查不到时**放行**会造成安全漏洞，因此 Redis 故障时鉴权应**直接失败**（返回 500），宁可拒绝服务也不放行未校验的令牌。
+4. **缓存异常时的降级**：本地缓存随应用进程存在，正常情况下不会出现独立中间件故障；若缓存读写异常，黑名单校验失败时应**直接拒绝**（返回 500），宁可拒绝服务也不放行未校验的令牌；其余缓存异常时回源查库。
 
 ### 4.6 定时任务设计
 
@@ -597,7 +600,7 @@ graph LR
 
 **实现要点**
 
-1. **单机部署用 `@Scheduled` 即可**，不必上分布式调度（XXL-JOB 等）。但必须保证**同时只有一个实例在跑**——若将来多实例部署，需引入分布式锁（Redis `SETNX`）或改用调度中心。
+1. **单机部署用 `@Scheduled` 即可**，不必上分布式调度（XXL-JOB 等）。采集任务用进程内信号量保证同一时刻只有一条链路在跑；若将来多实例部署，需引入外部互斥锁（Redis `SETNX`）或改用调度中心。
 2. **采集任务要限流**：模块二首次全量采集需遍历仓库所有分支，耗时较长，须按仓库维度串行 + 间隔，并写入 `repo_sync_log` 记录耗时与结果，便于排查（成员端不提供手动同步入口，接口文档 `2-06` 只读同步状态）。
 3. **外部接口调用必须设超时与重试上限**，避免 Gitee / GitHub 不可用时任务线程被长时间挂起。
 
@@ -673,7 +676,7 @@ graph LR
 | 登录 | 同账号 5 分钟失败 5 次锁定 10 分钟 | 10005 |
 | 仓库同步 | 按仓库维度限流，避免触发第三方平台风控 | - |
 
-**邀请码防滥用**：邀请码一次性使用、可设有效期与使用次数，使用后立即失效；同一学号全局唯一，重复提交**覆盖旧申请**而不新增记录（防止刷量）。
+**邀请码防滥用**：邀请码一次性使用、可设有效期，使用后立即失效；同一学号全局唯一，重复提交**覆盖旧申请**而不新增记录（防止刷量）。
 
 ### 5.4 越权与数据隔离
 
@@ -692,7 +695,7 @@ graph LR
 | --- | --- | --- |
 | 阿里云 AccessKey | 后端配置（环境变量或配置中心） | **严禁下发前端、严禁提交进代码仓库** |
 | JWT 签名密钥 | 后端配置 | 同上；泄露等于令牌可伪造 |
-| MySQL / Redis 密码 | 后端配置 | 同上 |
+| MySQL 密码 | 后端配置 | 同上 |
 | 第三方平台 AccessToken | 数据库（AES 加密存储） | 成员绑定的 Gitee / GitHub 令牌加密落库，接口返回时脱敏 |
 
 **三条硬性纪律**
@@ -738,7 +741,7 @@ graph LR
 ### 6.2 可用性与容错
 
 1. **外部依赖降级**：Gitee / GitHub、Jellyfin、OSS 任一不可用时，**不得阻塞其他模块**。同步任务失败只写 `repo_sync_log` 并重试，不影响成员正常使用平台。
-2. **Redis 故障策略**：鉴权相关（黑名单）Redis 不可用时**直接拒绝**（安全优先），其余缓存不可用时**回源查库**（可用性优先）。
+2. **缓存故障策略**：鉴权相关（黑名单）缓存读写异常时**直接拒绝**（安全优先），其余缓存异常时**回源查库**（可用性优先）。
 3. **文件上传失败可重试**：后端中转上传失败时不写 `sys_file`，前端可重新提交，不产生垃圾记录。
 4. **数据库备份**：至少每日一次逻辑备份（`mysqldump`），保留 7 天；重大操作前手动备份。
 
@@ -765,7 +768,6 @@ graph LR
 | --- | --- | --- |
 | JDK | 17（若用 Spring Boot 3.x）或 8（若用 2.7.x） | **需与 Spring Boot 版本匹配**，启动前确认 |
 | MySQL | 8.0+ | 需支持窗口函数与 JSON 类型 |
-| Redis | 6.0+ | 需支持 TTL 与 INCR |
 | Node.js | 18 LTS+ | 前端构建 |
 | Nginx | 1.20+ | 静态托管 + 反向代理 + HTTPS |
 | FRP | 0.5x | 服务端装公网机器，客户端装本地服务器 |
@@ -774,8 +776,8 @@ graph LR
 
 ```mermaid
 graph TB
-    S1["1 准备环境<br/>安装 JDK / MySQL / Redis / Nginx / FRP"] --> S2["2 初始化数据库<br/>执行《数据库设计》中的建表 SQL 与初始数据 SQL"]
-    S2 --> S3["3 配置后端<br/>数据库连接 / Redis / JWT 密钥 / OSS AccessKey"]
+    S1["1 准备环境<br/>安装 JDK / MySQL / Nginx / FRP"] --> S2["2 初始化数据库<br/>执行《数据库设计》中的建表 SQL 与初始数据 SQL"]
+    S2 --> S3["3 配置后端<br/>数据库连接 / JWT 密钥 / OSS AccessKey"]
     S3 --> S4["4 打包后端<br/>mvn clean package → 可执行 jar"]
     S4 --> S5["5 构建前端<br/>npm install && npm run build → dist"]
     S5 --> S6["6 配置 Nginx<br/>静态目录 + /api 反向代理 + HTTPS 证书"]
@@ -783,16 +785,17 @@ graph TB
     S7 --> S8["8 验证<br/>GET /common/health 应返回 status=UP"]
 ```
 
-**启动顺序**：MySQL / Redis → 后端 jar → Nginx → FRP。
+**启动顺序**：MySQL → 后端 jar → Nginx → FRP。
 
 **上线前检查清单**
 
-- [ ] `GET /common/health` 返回 `status=UP`，且 `mysql` / `redis` 均为连通
+- [ ] `GET /common/health` 返回 `status=UP`，且 `mysql` / `cache` 均为连通
 - [ ] 生产环境 HTTPS 生效，HTTP 自动跳转
 - [ ] `.env` 未提交进仓库，`.gitignore` 已生效
 - [ ] 数据库已建索引，初始角色 / 权限码 / 管理员账号已写入
 - [ ] OSS Bucket 权限为公共读，对象键前缀可正常访问
 - [ ] Jellyfin 的 `playUrl` 使用公网域名（非内网 IP）
+- [ ] 招新邮件 SMTP 已配置（`MAIL_USERNAME` / `MAIL_AUTH_CODE`），`iecmp.recruit.mail-enabled=1`，测试邮箱能收到注册码
 - [ ] 定时任务已启用，日志中无异常堆栈
 - [ ] Nginx 已配置前端路由 history 模式的 fallback（否则刷新页面 404）
 
@@ -802,7 +805,6 @@ graph TB
 | --- | --- | --- |
 | `spring.datasource.url` | `jdbc:mysql://127.0.0.1:3306/iecmp?useUnicode=true&characterEncoding=utf8mb4` | 数据库连接 |
 | `spring.datasource.username` / `password` | - | 数据库账号 |
-| `spring.redis.host` / `port` / `password` | `127.0.0.1` / `6379` | 缓存连接 |
 | `jwt.secret` | 32 位以上随机串 | JWT 签名密钥 |
 | `jwt.access-token-expire` | `7200` | accessToken 有效期（秒） |
 | `jwt.refresh-token-expire` | `604800` | refreshToken 有效期（秒） |
@@ -814,12 +816,19 @@ graph TB
 | `upload.max-doc-size` | `20971520` | 文档大小上限（字节） |
 | `jellyfin.base-url` | `https://jellyfin.xxx.com` | 拼接播放链接用 |
 | `server.servlet.context-path` | `/api` | 统一前缀（前端拼接，文档中不重复书写） |
+| `spring.mail.username` / `password` | `xxx@qq.com` / SMTP 授权码 | 招新注册码发件账号；QQ 邮箱用授权码而非登录密码 |
+| `iecmp.recruit.enabled` | `1` | 招新报名入口开关（接口 1-30） |
+| `iecmp.recruit.code-expire-hours` | `24` | 注册码有效期（小时） |
+| `iecmp.recruit.mail-enabled` | `1` | 1 真实发信；0 只写日志（本地联调用） |
+| `iecmp.recruit.code-pepper` | 32 位以上随机串 | 注册码 HMAC 密钥，生产必须通过 `RECRUIT_CODE_PEPPER` 注入且不可更换 |
+| `iecmp.register.invite-enabled` / `apply-enabled` | `1` / `0` | 邀请码注册 / 注册申请开关（接口 1-22） |
+| `iecmp.cors.allowed-origins` | `https://iecmp.example.com` | 允许的前端来源，逗号分隔；外部招新网页的域名也要加进来 |
 
 ### 7.4 常见故障排查
 
 | 现象 | 可能原因 | 排查方向 |
 | --- | --- | --- |
-| 登录后立刻提示未登录 | 令牌未正确注入请求头 / 黑名单误判 | 看浏览器请求头是否有 `Authorization`；查 Redis 黑名单 Key |
+| 登录后立刻提示未登录 | 令牌未正确注入请求头 / 后端刚重启导致黑名单清空 | 看浏览器请求头是否有 `Authorization`；确认后端是否刚重启 |
 | 上传成功但图片 404 | OSS URL 前缀配置错误 / objectKey 拼接错误 | 直接访问返回的 `url` 验证；核对 `oss.url-prefix` |
 | 视频能登记但播放不了 | `playUrl` 是内网地址；或 HLS 未引入播放器 | 用公网直接访问 `playUrl`；确认前端是否引入 `hls.js` |
 | 页面刷新后 404 | Nginx 未配置 history fallback | Nginx 加 `try_files $uri $uri/ /index.html;` |
@@ -891,7 +900,7 @@ graph TB
 | 后端框架 | Spring Boot | 3.x 或 2.7.x | 待确认 |
 | 持久层 | MyBatis-Plus | 3.5.x | 待确认 |
 | 数据库 | MySQL | 8.0.x | 待确认 |
-| 缓存 | Redis | 7.x | 待确认 |
+| 缓存 | 进程内缓存（`LocalCacheStore`） | JDK 17 `ConcurrentHashMap` | 已确认 |
 | 连接池 | Druid / HikariCP | 随 Spring Boot 默认 | 待确认 |
 | 认证 | jjwt / java-jwt | 0.11.x / 4.x | 待确认 |
 | OSS SDK | aliyun-sdk-oss | 3.17.x | 待确认 |
@@ -921,7 +930,7 @@ graph TB
 | 数据范围 | 角色的数据可见范围：1 全部数据 / 2 本人数据 |
 | accessToken | 短期访问令牌，2 小时有效 |
 | refreshToken | 长期刷新令牌，7 天有效，仅用于换取 accessToken |
-| 令牌黑名单 | Redis 中记录已失效令牌的集合，用于实现「退出即失效」 |
+| 令牌黑名单 | 本地缓存中记录已失效令牌的集合，用于实现「退出即失效」 |
 | objectKey | 对象在 OSS 中的唯一键，形如 `upload/avatar/2026/09/{uuid}.png` |
 | Bucket | OSS 中的存储桶，本项目为公共读 |
 | 一物一码 | 每件资产单独一条记录、单独一个编号的资产管理方式 |

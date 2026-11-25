@@ -1,5 +1,6 @@
 package com.iecmp.commonm.service.impl;
 
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.common.result.ResultCode;
@@ -9,7 +10,6 @@ import com.iecmp.commonm.vo.CaptchaVO;
 import com.iecmp.commonm.vo.HealthVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -19,7 +19,6 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 公共验证码与健康检查实现。
@@ -32,25 +31,22 @@ public class CommonSystemServiceImpl implements CommonSystemService {
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final StringRedisTemplate stringRedisTemplate;
+    private final LocalCacheStore cacheStore;
     private final DataSource dataSource;
 
     @Override
     public CaptchaVO generateCaptcha(String ip) {
         String limitKey = CacheKeyConstants.LIMIT_CAPTCHA_PREFIX
                 + (StringUtils.hasText(ip) ? ip.trim() : "unknown");
-        Long count = stringRedisTemplate.opsForValue().increment(limitKey);
-        if (count != null && count == 1L) {
-            stringRedisTemplate.expire(limitKey, CacheKeyConstants.LIMIT_CAPTCHA_TTL_SECONDS, TimeUnit.SECONDS);
-        }
-        if (count != null && count > CacheKeyConstants.CAPTCHA_LIMIT_PER_MINUTE) {
+        long count = cacheStore.increment(limitKey, CacheKeyConstants.LIMIT_CAPTCHA_TTL_SECONDS);
+        if (count > CacheKeyConstants.CAPTCHA_LIMIT_PER_MINUTE) {
             throw new BusinessException(ResultCode.TOO_MANY_REQUESTS);
         }
 
         CaptchaUtil.Captcha captcha = CaptchaUtil.generate();
         String captchaKey = UUID.randomUUID().toString().replace("-", "");
-        stringRedisTemplate.opsForValue().set(CacheKeyConstants.CAPTCHA_PREFIX + captchaKey,
-                captcha.code(), CacheKeyConstants.CAPTCHA_TTL_SECONDS, TimeUnit.SECONDS);
+        cacheStore.set(CacheKeyConstants.CAPTCHA_PREFIX + captchaKey,
+                captcha.code(), CacheKeyConstants.CAPTCHA_TTL_SECONDS);
 
         CaptchaVO vo = new CaptchaVO();
         vo.setCaptchaKey(captchaKey);
@@ -61,13 +57,13 @@ public class CommonSystemServiceImpl implements CommonSystemService {
     @Override
     public HealthVO health() {
         String mysql = checkMysql();
-        String redis = checkRedis();
+        String cache = checkCache();
         HealthVO vo = new HealthVO();
-        vo.setStatus("UP".equals(mysql) && "UP".equals(redis) ? "UP" : "DOWN");
+        vo.setStatus("UP".equals(mysql) && "UP".equals(cache) ? "UP" : "DOWN");
         vo.setVersion("1.0.0");
         vo.setTime(LocalDateTime.now().format(DATE_TIME_FORMATTER));
         vo.setMysql(mysql);
-        vo.setRedis(redis);
+        vo.setCache(cache);
         return vo;
     }
 
@@ -82,12 +78,12 @@ public class CommonSystemServiceImpl implements CommonSystemService {
         }
     }
 
-    private String checkRedis() {
+    private String checkCache() {
         try {
-            stringRedisTemplate.hasKey("iecmp:health:probe");
-            return "UP";
+            cacheStore.set("iecmp:health:probe", "1", 60L);
+            return "1".equals(cacheStore.get("iecmp:health:probe")) ? "UP" : "DOWN";
         } catch (Exception e) {
-            log.warn("Redis 健康检查失败：{}", e.getMessage());
+            log.warn("本地缓存健康检查失败：{}", e.getMessage());
             return "DOWN";
         }
     }

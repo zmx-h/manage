@@ -9,7 +9,7 @@
           :src="safeUrl(user.avatarUrl)"
         >
           {{ (user.realName || user.username || 'I').slice(0,1) }}
-        </el-avatar><h2>{{ user.realName || 'IECMP' }}</h2><p>{{ user.username || t('preview') }}</p><el-tag
+        </el-avatar><h2>{{ user.realName || 'IECMP' }}</h2><p>{{ user.username || '—' }}</p><el-tag
           v-for="role in user.roles"
           :key="role"
           effect="plain"
@@ -64,7 +64,6 @@
             type="primary"
             native-type="submit"
             :loading="saving"
-            :disabled="preview"
           >
             {{ t('save') }}
           </el-button>
@@ -76,7 +75,6 @@
             :size="20"
           />
         </div><p>{{ pair('定期更新密码，保护你的中心账号。修改成功后将重新登录。','Keep your account safe with an updated password. You will be signed out after changing it.') }}</p><el-button
-          :disabled="preview"
           @click="operation.open('1-07')"
         >
           {{ t('changePassword') }}
@@ -93,14 +91,13 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
-import { useWorkspace } from '@/composables/useWorkspace'
 import { useLocale } from '@/locales'
 import { invoke, safeUrl } from '@/api/client'
 import FileUpload from '@/components/common/FileUpload.vue'
 import ContractDialog from '@/components/common/ContractDialog.vue'
 import AppIcon from '@/components/common/AppIcon.vue'
-const user=useUserStore(); const {preview}=useWorkspace(); const {t,pair}=useLocale(); const router=useRouter(); const operation=ref(); const profileRef=ref(); const saving=ref(false); const form=reactive({realName:user.realName,phone:'',email:'',avatarUrl:user.avatarUrl})
-onMounted(async()=>{if(!preview.value)try{Object.assign(form,await invoke('1-05'))}catch(e){ElMessage.error(e.message)}})
-async function save(){ if(!await profileRef.value.validate().catch(()=>false)||preview.value)return; saving.value=true; try{await invoke('1-06',form); await user.fetchInfo(); ElMessage.success(t('saved'))}catch(e){ElMessage.error(e.message)}finally{saving.value=false} }
+const user=useUserStore(); const {t,pair}=useLocale(); const router=useRouter(); const operation=ref(); const profileRef=ref(); const saving=ref(false); const form=reactive({realName:user.realName,phone:'',email:'',avatarUrl:user.avatarUrl})
+onMounted(async()=>{try{Object.assign(form,await invoke('1-05'))}catch(e){ElMessage.error(e.message)}})
+async function save(){ if(!await profileRef.value.validate().catch(()=>false))return; saving.value=true; try{await invoke('1-06',form); await user.fetchInfo(); ElMessage.success(t('saved'))}catch(e){ElMessage.error(e.message)}finally{saving.value=false} }
 function passwordChanged(){user.reset(); ElMessage.success(t('passwordChanged')); router.push('/login')}
 </script>

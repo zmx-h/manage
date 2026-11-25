@@ -28,6 +28,10 @@ public class InfoUpdateDTO implements Serializable {
     @Schema(description = "邮箱")
     private String email;
 
+    /** 班级 */
+    @Schema(description = "班级")
+    private String className;
+
     /** 头像地址，来源于文件上传接口 8-01 */
     @Schema(description = "头像地址，来源于文件上传接口 8-01")
     private String avatarUrl;

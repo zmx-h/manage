@@ -1,5 +1,6 @@
 package com.iecmp.common.security.impl;
 
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.constant.CacheKeyConstants;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.exception.BusinessException;
@@ -12,10 +13,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * 令牌服务实现。
@@ -30,7 +28,7 @@ public class TokenServiceImpl implements TokenService {
 
     private final JwtUtil jwtUtil;
     private final JwtProperties jwtProperties;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final LocalCacheStore cacheStore;
     private final LoginUserLoader loginUserLoader;
 
     @Override
@@ -81,8 +79,7 @@ public class TokenServiceImpl implements TokenService {
             Claims claims = jwtUtil.parse(token);
             long remain = jwtUtil.getRemainSeconds(claims);
             if (remain > 0) {
-                stringRedisTemplate.opsForValue().set(
-                        CacheKeyConstants.TOKEN_BLACKLIST_PREFIX + token, "1", remain, TimeUnit.SECONDS);
+                cacheStore.set(CacheKeyConstants.TOKEN_BLACKLIST_PREFIX + token, "1", remain);
             }
         } catch (JwtException | IllegalArgumentException e) {
             // 令牌本身已失效，无需加入黑名单
@@ -96,8 +93,6 @@ public class TokenServiceImpl implements TokenService {
     }
 
     private boolean isBlacklisted(String token) {
-        Boolean exists = stringRedisTemplate.hasKey(CacheKeyConstants.TOKEN_BLACKLIST_PREFIX + token);
-        // Redis 故障时宁可拒绝服务也不放行未校验的令牌（架构文档 4.5 节设计原则 4）
-        return Boolean.TRUE.equals(exists);
+        return cacheStore.hasKey(CacheKeyConstants.TOKEN_BLACKLIST_PREFIX + token);
     }
 }

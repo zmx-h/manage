@@ -39,6 +39,10 @@ public class UserAddDTO implements Serializable {
     @Schema(description = "年级")
     private String grade;
 
+    /** 班级 */
+    @Schema(description = "班级")
+    private String className;
+
     /** 专业 */
     @Schema(description = "专业")
     private String major;

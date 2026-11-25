@@ -10,7 +10,7 @@ const engine=()=>createMockEngine(contracts)
 const token=(e,username='admin')=>e.dispatch(username==='admin'?'1-01':'1-02',{username,password:'demo1234'}).accessToken
 const errorCode=(fn,code)=>assert.throws(fn,error=>error.code===code)
 
-test('all 186 contracts have real local mock handlers, not a generic success fallback',()=>{
+test('all 192 contracts have real local mock handlers, not a generic success fallback',()=>{
  const source=fs.readFileSync(new URL('./engine.js',import.meta.url),'utf8');const supported=new Set([...source.matchAll(/(?:case\s+)?'([1-8]-\d{2})'\s*:/g)].map(m=>m[1]));for(const id of Object.keys(contracts))assert.ok(supported.has(id),id)
 })
 test('all GET contracts respond with valid structures and pagination, without backend',()=>{

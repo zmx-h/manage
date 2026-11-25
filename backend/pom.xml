@@ -42,11 +42,12 @@
       <artifactId>spring-boot-starter-aop</artifactId>
     </dependency>
 
-    <!-- Redis：令牌黑名单 / 验证码 / 字典缓存 / 限流计数 -->
+    <!-- 邮件：招新报名通过后自动发送注册码（QQ 邮箱 SMTP） -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
+      <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-pool2</artifactId>

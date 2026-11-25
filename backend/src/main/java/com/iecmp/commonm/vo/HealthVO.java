@@ -34,5 +34,5 @@ public class HealthVO implements Serializable {
 
     /** 缓存连通状态 */
     @Schema(description = "缓存连通状态")
-    private String redis;
+    private String cache;
 }

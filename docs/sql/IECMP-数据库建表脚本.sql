@@ -1,10 +1,10 @@
 -- ============================================================================
 --  IECMP 创业中心管理平台 · 数据库建表脚本
 -- ----------------------------------------------------------------------------
---  生成来源 ：IECMP-数据库设计.md（V1.2 第 3 章）—— 本文件由文档生成，请勿单独修改；
+--  生成来源 ：IECMP-数据库设计.md（V1.3 第 3 章）—— 本文件由文档生成，请勿单独修改；
 --            表结构变更须先改文档，再重新生成本文件。
 --  数据库   ：MySQL 8.0+ / InnoDB / utf8mb4 / utf8mb4_general_ci
---  内容     ：建库语句 + 36 张表 DDL（模块一 用户与权限 → 模块八 通用支撑）
+--  内容     ：建库语句 + 37 张表 DDL（模块一 用户与权限 → 模块八 通用支撑）
 --  执行顺序 ：1) 本脚本  →  2) IECMP-初始数据.sql
 --  幂等说明 ：每张表 DDL 前带 DROP TABLE IF EXISTS，脚本可反复执行，
 --            但【会清空已有数据】，仅用于初始化或重建，禁止在生产库随意执行。
@@ -27,7 +27,7 @@ USE `iecmp`;
 
 
 -- ============================================================================
---  3.1 模块一：用户与权限（6 张）
+--  3.1 模块一：用户与权限（7 张）
 -- ============================================================================
 
 -- ---- 3.1.1 `sys_user` 用户表 ----
@@ -40,6 +40,7 @@ CREATE TABLE `sys_user` (
   `real_name`       VARCHAR(32)  NOT NULL                          COMMENT '姓名',
   `student_no`      VARCHAR(20)           DEFAULT NULL             COMMENT '学号，全局唯一',
   `grade`           VARCHAR(10)           DEFAULT NULL             COMMENT '年级，如 2023',
+  `class_name`      VARCHAR(50)           DEFAULT NULL             COMMENT '班级',
   `major`           VARCHAR(50)           DEFAULT NULL             COMMENT '专业',
   `phone`           VARCHAR(20)           DEFAULT NULL             COMMENT '手机号',
   `email`           VARCHAR(64)           DEFAULT NULL             COMMENT '邮箱',
@@ -121,8 +122,7 @@ DROP TABLE IF EXISTS `sys_invite_code`;
 CREATE TABLE `sys_invite_code` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   `code`          VARCHAR(16)  NOT NULL                COMMENT '邀请码，8 位大写字母数字',
-  `max_use_count` INT          NOT NULL DEFAULT 1      COMMENT '可用次数',
-  `used_count`    INT          NOT NULL DEFAULT 0      COMMENT '已使用次数',
+  `used_count`    INT          NOT NULL DEFAULT 0      COMMENT '使用状态：0 未使用 1 已使用（一次性）',
   `expire_time`   DATETIME              DEFAULT NULL   COMMENT '过期时间，NULL 表示长期有效',
   `status`        TINYINT      NOT NULL DEFAULT 1      COMMENT '状态：0 作废 1 有效',
   `remark`        VARCHAR(255)          DEFAULT NULL   COMMENT '备注，如「2026 秋季纳新」',
@@ -164,6 +164,46 @@ CREATE TABLE `sys_register_apply` (
   KEY `idx_apply_time` (`apply_time`),
   KEY `idx_ip` (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='注册申请表';
+
+-- ---- 3.1.7 `sys_recruit_apply` 招新报名表 ----
+
+DROP TABLE IF EXISTS `sys_recruit_apply`;
+CREATE TABLE `sys_recruit_apply` (
+  `id`                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `student_no`         VARCHAR(20)           DEFAULT NULL   COMMENT '学号，可选',
+  `real_name`          VARCHAR(32)  NOT NULL                COMMENT '姓名',
+  `grade`              VARCHAR(10)  NOT NULL                COMMENT '年级',
+  `class_name`         VARCHAR(50)  NOT NULL                COMMENT '班级',
+  `email`              VARCHAR(64)  NOT NULL                COMMENT '邮箱（小写）',
+  `phone`              VARCHAR(20)           DEFAULT NULL   COMMENT '手机号',
+  `intro`              VARCHAR(500)          DEFAULT NULL   COMMENT '个人简介',
+  `status`             TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0 待考核 1 已通过待发码 2 未通过 3 已发码 4 已注册 5 注册码已过期',
+  `score`              DECIMAL(5,2)          DEFAULT NULL   COMMENT '考核成绩',
+  `assessment_remark`  VARCHAR(255)          DEFAULT NULL   COMMENT '成绩备注',
+  `assessment_user_id` BIGINT                DEFAULT NULL   COMMENT '录入成绩的管理员 ID',
+  `assessment_time`    DATETIME              DEFAULT NULL   COMMENT '录入成绩时间',
+  `code_hash`          CHAR(64)              DEFAULT NULL   COMMENT '注册码 HMAC-SHA256(code+pepper)',
+  `code_expire_time`   DATETIME              DEFAULT NULL   COMMENT '注册码过期时间',
+  `code_create_time`   DATETIME              DEFAULT NULL   COMMENT '注册码生成时间',
+  `code_sent_time`     DATETIME              DEFAULT NULL   COMMENT '最近发信时间',
+  `code_send_count`    INT          NOT NULL DEFAULT 0      COMMENT '累计发信次数',
+  `code_attempts`      INT          NOT NULL DEFAULT 0      COMMENT '连续输错次数',
+  `create_user_id`     BIGINT                DEFAULT NULL   COMMENT '注册成功后生成的用户 ID',
+  `ip`                 VARCHAR(64)           DEFAULT NULL   COMMENT '报名来源 IP',
+  `apply_time`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间',
+  `create_by`          BIGINT                DEFAULT NULL   COMMENT '创建人 ID',
+  `create_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`          BIGINT                DEFAULT NULL   COMMENT '更新人 ID',
+  `update_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted`            BIGINT       NOT NULL DEFAULT 0      COMMENT '删除标记：0 未删除；已删除时写入本行 id（见 1.5 节）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_email` (`email`, `deleted`),
+  UNIQUE KEY `uk_student_no` (`student_no`, `deleted`),
+  UNIQUE KEY `uk_code_hash` (`code_hash`, `deleted`),
+  KEY `idx_status_apply_time` (`status`, `apply_time`),
+  KEY `idx_email_status` (`email`, `status`),
+  KEY `idx_ip_apply_time` (`ip`, `apply_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='招新报名表';
 
 -- ============================================================================
 --  3.2 模块二：代码仓库关联（4 张）

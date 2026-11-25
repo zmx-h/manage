@@ -79,13 +79,13 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="sidebar-note">
-          <span class="tiny-dot" /><span class="sidebar-text">{{ preview ? t('safePreview') : 'IECMP · v1.0' }}</span>
+          <span class="tiny-dot" /><span class="sidebar-text">IECMP · v1.0</span>
         </div>
         <router-link
-          :to="preview ? '/login' : '/profile'"
+          to="/profile"
           class="sidebar-account"
         >
-          <span class="avatar">{{ initial }}</span><span class="sidebar-text"><b>{{ preview ? t('preview') : user.realName || user.username }}</b><small>{{ preview ? t('loginNow') : user.username }}</small></span><AppIcon
+          <span class="avatar">{{ initial }}</span><span class="sidebar-text"><b>{{ user.realName || user.username }}</b><small>{{ user.username }}</small></span><AppIcon
             name="chevron"
             :size="16"
           />
@@ -115,41 +115,31 @@
               name="search"
               :size="17"
             /><span>{{ t('search') }}</span><kbd>⌘ K</kbd>
-          </button><PreferencesControl /><router-link
-            :to="preview ? '/preview/user/message' : '/message'"
-            class="icon-button"
-            :aria-label="t('unread')"
-          >
-            <AppIcon name="bell" /><i
-              v-if="unread > 0"
-              class="notification-dot"
-            />
-          </router-link><span class="topbar-divider" /><el-dropdown
+          </button><PreferencesControl /><span class="topbar-divider" /><el-dropdown
             trigger="click"
             @command="onAccount"
           >
             <button class="account-trigger">
-              <span class="avatar small">{{ initial }}</span><span>{{ preview ? 'IECMP' : user.realName || user.username }}</span><AppIcon
+              <span class="avatar small">{{ initial }}</span><span>{{ user.realName || user.username }}</span><AppIcon
                 name="chevron"
                 :size="12"
               />
             </button><template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item
-                  v-if="!preview"
                   command="profile"
                 >
                   {{ t('profile') }}
                 </el-dropdown-item><el-dropdown-item
-                  v-if="preview || side === 'admin' || user.canAdmin"
+                  v-if="side === 'admin' || user.canAdmin"
                   command="switch"
                 >
                   {{ t(side === 'admin' ? 'switchUser' : 'switchAdmin') }}
                 </el-dropdown-item><el-dropdown-item
-                  :divided="!preview"
+                  divided
                   command="logout"
                 >
-                  {{ t(preview ? 'loginNow' : 'logout') }}
+                  {{ t('logout') }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -157,17 +147,6 @@
         </div>
       </header>
       <main class="workspace-content">
-        <div
-          v-if="preview"
-          class="preview-banner"
-        >
-          <AppIcon
-            name="info"
-            :size="17"
-          /><span>{{ t('previewNotice') }}</span><router-link to="/login">
-            {{ t('loginNow') }} ↗
-          </router-link>
-        </div>
         <router-view />
         <footer class="workspace-footer">
           <span>© {{ new Date().getFullYear() }} IECMP · {{ t('brand') }}</span><span>Built for ideas. Designed for people.</span>
@@ -217,11 +196,11 @@ import { invoke } from '@/api/client'
 import AppIcon from '@/components/common/AppIcon.vue'
 import PreferencesControl from '@/components/common/PreferencesControl.vue'
 const app = useAppStore(); const user = useUserStore(); const router = useRouter(); const { t, pair } = useLocale()
-const { preview, side, page, link } = useWorkspace()
+const { side, page, link } = useWorkspace()
 const title = item => pair(item.title, item.en)
-const sidePages = computed(() => pages.filter(p => p.side === side.value && (preview.value || user.hasPerm(p.permission))))
+const sidePages = computed(() => pages.filter(p => p.side === side.value && user.hasPerm(p.permission)))
 const menuGroups = computed(() => groups.map(key => ({ key, pages: sidePages.value.filter(p => p.group === key) })).filter(g => g.pages.length))
-const openGroups = ref(new Set()); const searchOpen = ref(false); const searchText = ref(''); const unread = ref(0)
+const openGroups = ref(new Set()); const searchOpen = ref(false); const searchText = ref('')
 const initial = computed(() => (user.realName || user.username || 'I').slice(0, 1).toUpperCase())
 const searchPages = computed(() => sidePages.value.filter(p => `${p.title} ${p.en}`.toLowerCase().includes(searchText.value.toLowerCase())))
 watch(() => page.value?.group, group => { if (group) openGroups.value = new Set([...openGroups.value, group]) }, { immediate: true })
@@ -231,12 +210,10 @@ function go(item) { router.push(link(item)); searchOpen.value = false; searchTex
 function keyboard(e) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); searchOpen.value = !searchOpen.value } }
 async function onAccount(command) {
   if (command === 'profile') return router.push('/profile')
-  if (command === 'switch') return router.push(preview.value ? `/preview/${side.value === 'admin' ? 'user/home' : 'admin/dashboard'}` : side.value === 'admin' ? '/home' : '/admin')
-  if (!preview.value) { try { await invoke('1-03') } catch (error) { ElMessage.warning(error.message) } user.reset() }
+  if (command === 'switch') return router.push(side.value === 'admin' ? '/home' : '/admin')
+  try { await invoke('1-03') } catch (error) { ElMessage.warning(error.message) } user.reset()
   router.push(side.value === 'admin' ? '/admin/login' : '/login')
 }
-let timer
-async function fetchUnread() { if (preview.value) return; try { const result = await invoke('8-21'); unread.value = result?.total ?? 0 } catch { /* Badge failure must not block navigation. */ } }
-onMounted(() => { window.addEventListener('keydown', keyboard); fetchUnread(); if (!preview.value) timer = window.setInterval(fetchUnread, 60000) })
-onUnmounted(() => { window.removeEventListener('keydown', keyboard); if (timer) window.clearInterval(timer) })
+onMounted(() => window.addEventListener('keydown', keyboard))
+onUnmounted(() => window.removeEventListener('keydown', keyboard))
 </script>

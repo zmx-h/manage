@@ -205,7 +205,7 @@
     "path": "/user/logout",
     "method": "post",
     "permission": "登录即可",
-    "description": "注销当前令牌，令牌写入 Redis 黑名单直至自然过期",
+    "description": "注销当前令牌，令牌写入进程内黑名单直至自然过期",
     "auth": true,
     "fields": [],
     "returns": []
@@ -1217,7 +1217,7 @@
     "path": "/common/register/config",
     "method": "get",
     "permission": "无（公开接口）",
-    "description": "返回当前开放的注册通道与提示文案，供注册页决定展示「邀请码注册」还是「申请入驻」表单",
+    "description": "返回当前开放的注册通道与提示文案，供注册页决定展示「邀请码注册」「申请入驻」还是「招新码注册」表单",
     "auth": false,
     "fields": [],
     "returns": [
@@ -1240,6 +1240,21 @@
         "key": "tips",
         "type": "string",
         "description": "非必须；-；注册页提示文案，由后台配置；-"
+      },
+      {
+        "key": "recruitEnabled",
+        "type": "integer",
+        "description": "必须；-；1 开启招新注册码注册，0 关闭；format: int32"
+      },
+      {
+        "key": "recruitTips",
+        "type": "string",
+        "description": "非必须；-；招新注册提示文案，如「请使用报名邮箱接收注册码」；-"
+      },
+      {
+        "key": "recruitCodeExpireHours",
+        "type": "integer",
+        "description": "必须；-；招新注册码有效期（小时），当前为 24；format: int32"
       }
     ]
   },
@@ -1610,14 +1625,9 @@
         "description": "必须；-；邀请码，8 位大写字母数字；-"
       },
       {
-        "key": "maxUseCount",
-        "type": "integer",
-        "description": "必须；-；可用次数；format: int32"
-      },
-      {
         "key": "usedCount",
         "type": "integer",
-        "description": "必须；-；已使用次数；format: int32"
+        "description": "必须；-；使用状态：0 未使用，1 已使用（一次性）；format: int32"
       },
       {
         "key": "expireTime",
@@ -1642,7 +1652,7 @@
     "path": "/admin/invite-code",
     "method": "post",
     "permission": "system:invite:add",
-    "description": "批量生成邀请码，生成后由负责人在群内分发",
+    "description": "批量生成一次性邀请码，每个邀请码仅可完成一次注册，生成后由负责人在群内分发",
     "auth": true,
     "fields": [
       {
@@ -1652,14 +1662,6 @@
         "location": "body",
         "parent": null,
         "description": "1；生成数量，范围 1~50；format: int32"
-      },
-      {
-        "key": "maxUseCount",
-        "type": "integer",
-        "required": false,
-        "location": "body",
-        "parent": null,
-        "description": "1；每个邀请码可用次数；format: int32"
       },
       {
         "key": "expireTime",
@@ -1705,6 +1707,552 @@
       }
     ],
     "returns": []
+  },
+  "1-30": {
+    "id": "1-30",
+    "name": "招新报名提交",
+    "path": "/common/recruit/apply",
+    "method": "post",
+    "permission": "无（公开接口）",
+    "description": "外部招新网页提交报名信息，邮箱用于后续接收注册码；同一邮箱、同一学号只能报名一次",
+    "auth": false,
+    "fields": [
+      {
+        "key": "realName",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；姓名，最长 32 字；-"
+      },
+      {
+        "key": "grade",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；年级，如 2025，最长 10 字；-"
+      },
+      {
+        "key": "className",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；班级，最长 50 字；-"
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；报名邮箱，最长 64 位，保存时转小写；-"
+      },
+      {
+        "key": "studentNo",
+        "type": "string",
+        "required": false,
+        "location": "body",
+        "parent": null,
+        "description": "-；学号，最长 20 位；-"
+      },
+      {
+        "key": "phone",
+        "type": "string",
+        "required": false,
+        "location": "body",
+        "parent": null,
+        "description": "-；手机号，11 位；-"
+      },
+      {
+        "key": "intro",
+        "type": "string",
+        "required": false,
+        "location": "body",
+        "parent": null,
+        "description": "-；个人简介，最长 500 字；-"
+      }
+    ],
+    "returns": [
+      {
+        "key": "applyId",
+        "type": "integer",
+        "description": "必须；-；报名记录 ID；format: int64"
+      },
+      {
+        "key": "status",
+        "type": "integer",
+        "description": "必须；-；报名状态，新建记录固定为 0 待考核；format: int32"
+      }
+    ]
+  },
+  "1-31": {
+    "id": "1-31",
+    "name": "招新注册码注册",
+    "path": "/common/register/recruit",
+    "method": "post",
+    "permission": "无（公开接口）",
+    "description": "凭报名邮箱与邮件中的 8 位注册码注册；姓名、年级、班级、学号自动从报名记录带入",
+    "auth": false,
+    "fields": [
+      {
+        "key": "email",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；报名邮箱，必须与报名记录一致（不区分大小写）；-"
+      },
+      {
+        "key": "code",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；邮件中的 8 位注册码，不区分大小写；-"
+      },
+      {
+        "key": "username",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；登录账号，4~32 位，全局唯一；-"
+      },
+      {
+        "key": "password",
+        "type": "string",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；登录密码，6~32 位；-"
+      }
+    ],
+    "returns": [
+      {
+        "key": "userId",
+        "type": "integer",
+        "description": "必须；-；新账号 ID；format: int64"
+      },
+      {
+        "key": "username",
+        "type": "string",
+        "description": "必须；-；登录账号；-"
+      }
+    ]
+  },
+  "1-32": {
+    "id": "1-32",
+    "name": "招新报名分页",
+    "path": "/admin/recruit/apply/page",
+    "method": "get",
+    "permission": "system:recruit:list",
+    "description": "分页查询招新报名记录，支持按状态、关键字与报名时间筛选，按报名时间倒序",
+    "auth": true,
+    "fields": [
+      {
+        "key": "status",
+        "type": "integer",
+        "required": false,
+        "location": "query",
+        "parent": null,
+        "description": "-；0 待考核，1 已通过待发码，2 未通过，3 已发码，4 已注册，5 注册码已过期；format: int32"
+      },
+      {
+        "key": "keyword",
+        "type": "string",
+        "required": false,
+        "location": "query",
+        "parent": null,
+        "description": "-；模糊匹配姓名、邮箱、学号、班级；-"
+      },
+      {
+        "key": "beginTime",
+        "type": "string",
+        "required": false,
+        "location": "query",
+        "parent": null,
+        "description": "-；报名时间起，格式 yyyy-MM-dd HH:mm:ss；-"
+      },
+      {
+        "key": "endTime",
+        "type": "string",
+        "required": false,
+        "location": "query",
+        "parent": null,
+        "description": "-；报名时间止，格式 yyyy-MM-dd HH:mm:ss；-"
+      }
+    ],
+    "returns": [
+      {
+        "key": "applyId",
+        "type": "integer",
+        "description": "必须；-；报名记录 ID；format: int64"
+      },
+      {
+        "key": "studentNo",
+        "type": "string",
+        "description": "非必须；-；学号；-"
+      },
+      {
+        "key": "realName",
+        "type": "string",
+        "description": "必须；-；姓名；-"
+      },
+      {
+        "key": "grade",
+        "type": "string",
+        "description": "必须；-；年级；-"
+      },
+      {
+        "key": "className",
+        "type": "string",
+        "description": "必须；-；班级；-"
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "description": "必须；-；邮箱；-"
+      },
+      {
+        "key": "phone",
+        "type": "string",
+        "description": "非必须；-；手机号；-"
+      },
+      {
+        "key": "intro",
+        "type": "string",
+        "description": "非必须；-；个人简介；-"
+      },
+      {
+        "key": "status",
+        "type": "integer",
+        "description": "必须；-；0 待考核，1 已通过待发码，2 未通过，3 已发码，4 已注册，5 注册码已过期；format: int32"
+      },
+      {
+        "key": "score",
+        "type": "number",
+        "description": "非必须；-；考核成绩，保留两位小数；-"
+      },
+      {
+        "key": "assessmentRemark",
+        "type": "string",
+        "description": "非必须；-；成绩备注；-"
+      },
+      {
+        "key": "assessmentTime",
+        "type": "string",
+        "description": "非必须；-；成绩录入时间；-"
+      },
+      {
+        "key": "codeCreateTime",
+        "type": "string",
+        "description": "非必须；-；注册码生成时间；-"
+      },
+      {
+        "key": "codeSentTime",
+        "type": "string",
+        "description": "非必须；-；最近发信时间；-"
+      },
+      {
+        "key": "codeExpireTime",
+        "type": "string",
+        "description": "非必须；-；注册码过期时间；-"
+      },
+      {
+        "key": "codeSendCount",
+        "type": "integer",
+        "description": "必须；-；累计发信次数；format: int32"
+      },
+      {
+        "key": "codeExpired",
+        "type": "boolean",
+        "description": "必须；-；注册码是否已过期；-"
+      },
+      {
+        "key": "createUserId",
+        "type": "integer",
+        "description": "非必须；-；注册成功后生成的用户 ID；format: int64"
+      },
+      {
+        "key": "ip",
+        "type": "string",
+        "description": "非必须；-；报名来源 IP；-"
+      },
+      {
+        "key": "applyTime",
+        "type": "string",
+        "description": "必须；-；报名时间；-"
+      }
+    ]
+  },
+  "1-33": {
+    "id": "1-33",
+    "name": "招新报名详情",
+    "path": "/admin/recruit/apply/{id}",
+    "method": "get",
+    "permission": "system:recruit:list",
+    "description": "查看报名信息、成绩、注册码状态与注册结果；不返回注册码明文",
+    "auth": true,
+    "fields": [
+      {
+        "key": "id",
+        "type": "integer",
+        "required": true,
+        "location": "path",
+        "parent": null,
+        "description": "报名记录 ID；12"
+      }
+    ],
+    "returns": [
+      {
+        "key": "applyId",
+        "type": "integer",
+        "description": "必须；-；报名记录 ID；format: int64"
+      },
+      {
+        "key": "studentNo",
+        "type": "string",
+        "description": "非必须；-；学号；-"
+      },
+      {
+        "key": "realName",
+        "type": "string",
+        "description": "必须；-；姓名；-"
+      },
+      {
+        "key": "grade",
+        "type": "string",
+        "description": "必须；-；年级；-"
+      },
+      {
+        "key": "className",
+        "type": "string",
+        "description": "必须；-；班级；-"
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "description": "必须；-；邮箱；-"
+      },
+      {
+        "key": "phone",
+        "type": "string",
+        "description": "非必须；-；手机号；-"
+      },
+      {
+        "key": "intro",
+        "type": "string",
+        "description": "非必须；-；个人简介；-"
+      },
+      {
+        "key": "status",
+        "type": "integer",
+        "description": "必须；-；0 待考核，1 已通过待发码，2 未通过，3 已发码，4 已注册，5 注册码已过期；format: int32"
+      },
+      {
+        "key": "score",
+        "type": "number",
+        "description": "非必须；-；考核成绩；-"
+      },
+      {
+        "key": "assessmentRemark",
+        "type": "string",
+        "description": "非必须；-；成绩备注；-"
+      },
+      {
+        "key": "assessmentUserId",
+        "type": "integer",
+        "description": "非必须；-；成绩录入管理员 ID；format: int64"
+      },
+      {
+        "key": "assessmentTime",
+        "type": "string",
+        "description": "非必须；-；成绩录入时间；-"
+      },
+      {
+        "key": "codeCreateTime",
+        "type": "string",
+        "description": "非必须；-；注册码生成时间；-"
+      },
+      {
+        "key": "codeSentTime",
+        "type": "string",
+        "description": "非必须；-；最近发信时间；-"
+      },
+      {
+        "key": "codeExpireTime",
+        "type": "string",
+        "description": "非必须；-；注册码过期时间；-"
+      },
+      {
+        "key": "codeSendCount",
+        "type": "integer",
+        "description": "必须；-；累计发信次数；format: int32"
+      },
+      {
+        "key": "codeAttempts",
+        "type": "integer",
+        "description": "必须；-；连续输错次数；format: int32"
+      },
+      {
+        "key": "codeExpired",
+        "type": "boolean",
+        "description": "必须；-；注册码是否已过期；-"
+      },
+      {
+        "key": "createUserId",
+        "type": "integer",
+        "description": "非必须；-；注册成功后生成的用户 ID；format: int64"
+      },
+      {
+        "key": "ip",
+        "type": "string",
+        "description": "非必须；-；报名来源 IP；-"
+      },
+      {
+        "key": "applyTime",
+        "type": "string",
+        "description": "必须；-；报名时间；-"
+      }
+    ]
+  },
+  "1-34": {
+    "id": "1-34",
+    "name": "招新考核成绩录入",
+    "path": "/admin/recruit/apply/{id}/assessment",
+    "method": "put",
+    "permission": "system:recruit:assess",
+    "description": "录入一轮考核成绩；达到通过分时生成 8 位注册码并自动发送邮件，未达到时状态置为未通过",
+    "auth": true,
+    "fields": [
+      {
+        "key": "id",
+        "type": "integer",
+        "required": true,
+        "location": "path",
+        "parent": null,
+        "description": "报名记录 ID；12"
+      },
+      {
+        "key": "score",
+        "type": "number",
+        "required": true,
+        "location": "body",
+        "parent": null,
+        "description": "-；考核成绩，0~100；-"
+      },
+      {
+        "key": "passScore",
+        "type": "integer",
+        "required": false,
+        "location": "body",
+        "parent": null,
+        "description": "60；通过分，0~100；不传时使用系统默认值 60；format: int32"
+      },
+      {
+        "key": "assessmentRemark",
+        "type": "string",
+        "required": false,
+        "location": "body",
+        "parent": null,
+        "description": "-；成绩备注，最长 255 字；-"
+      }
+    ],
+    "returns": [
+      {
+        "key": "applyId",
+        "type": "integer",
+        "description": "必须；-；报名记录 ID；format: int64"
+      },
+      {
+        "key": "score",
+        "type": "number",
+        "description": "必须；-；本次录入成绩；-"
+      },
+      {
+        "key": "passScore",
+        "type": "integer",
+        "description": "必须；-；本次使用的通过分；format: int32"
+      },
+      {
+        "key": "passed",
+        "type": "boolean",
+        "description": "必须；-；是否达到通过分；-"
+      },
+      {
+        "key": "status",
+        "type": "integer",
+        "description": "必须；-；最新状态：未通过为 2；通过且发信成功为 3；通过但发信失败为 1；format: int32"
+      },
+      {
+        "key": "codeExpireTime",
+        "type": "string",
+        "description": "非必须；-；注册码过期时间；未通过时为 null；-"
+      },
+      {
+        "key": "mailSent",
+        "type": "boolean",
+        "description": "必须；-；邮件是否发送成功；未通过时为 false；-"
+      },
+      {
+        "key": "mailError",
+        "type": "string",
+        "description": "非必须；-；邮件发送失败原因；成功或未通过时为 null；-"
+      }
+    ]
+  },
+  "1-35": {
+    "id": "1-35",
+    "name": "招新注册码补发",
+    "path": "/admin/recruit/apply/{id}/send-code",
+    "method": "post",
+    "permission": "system:recruit:send",
+    "description": "重新生成注册码并发送邮件，旧码立即失效；邮件发送失败时一次性返回明文注册码供线下告知",
+    "auth": true,
+    "fields": [
+      {
+        "key": "id",
+        "type": "integer",
+        "required": true,
+        "location": "path",
+        "parent": null,
+        "description": "报名记录 ID；12"
+      }
+    ],
+    "returns": [
+      {
+        "key": "applyId",
+        "type": "integer",
+        "description": "必须；-；报名记录 ID；format: int64"
+      },
+      {
+        "key": "status",
+        "type": "integer",
+        "description": "必须；-；最新状态：发信成功为 3，失败为 1；format: int32"
+      },
+      {
+        "key": "code",
+        "type": "string",
+        "description": "非必须；-；邮件发送失败时返回的 8 位明文注册码；成功时为 null；-"
+      },
+      {
+        "key": "codeExpireTime",
+        "type": "string",
+        "description": "必须；-；新注册码过期时间；-"
+      },
+      {
+        "key": "mailSent",
+        "type": "boolean",
+        "description": "必须；-；邮件是否发送成功；-"
+      },
+      {
+        "key": "mailError",
+        "type": "string",
+        "description": "非必须；-；邮件发送失败原因；成功时为 null；-"
+      }
+    ]
   },
   "2-01": {
     "id": "2-01",
@@ -1769,7 +2317,7 @@
         "required": true,
         "location": "body",
         "parent": null,
-        "description": "-；个人访问令牌，需具备读取仓库与提交的权限；后端 AES 加密后存储，接口不返回明文"
+        "description": "-；个人访问令牌，最长 256 个字符，需具备读取仓库与提交的权限；仅允许可打印 ASCII；后端 AES 加密后存储，接口不返回明文"
       }
     ],
     "returns": [
@@ -1865,7 +2413,7 @@
         "required": true,
         "location": "body",
         "parent": null,
-        "description": "-；新的个人访问令牌；后端 AES 加密后覆盖存储"
+        "description": "-；新的个人访问令牌，最长 256 个字符；仅允许可打印 ASCII；后端 AES 加密后覆盖存储"
       }
     ],
     "returns": []
@@ -4899,7 +5447,7 @@
     "path": "/user/asset/borrow",
     "method": "post",
     "permission": "登录即可",
-    "description": "成员提交资产借用或领用申请；借用需审核，领用视同消耗不归还",
+    "description": "成员提交资产借用或领用申请；借用需审核并归还，领用审核通过后资产状态置为已借出，不产生归还流程",
     "auth": true,
     "fields": [
       {
@@ -5509,18 +6057,18 @@
       {
         "key": "assetNo",
         "type": "string",
-        "required": true,
+        "required": false,
         "location": "body",
         "parent": null,
-        "description": "-；资产编号，全局唯一；-"
+        "description": "-；资产编号，全局唯一；不传表示不变更；-"
       },
       {
         "key": "name",
         "type": "string",
-        "required": true,
+        "required": false,
         "location": "body",
         "parent": null,
-        "description": "-；资产名称，最长 100 字；-"
+        "description": "-；资产名称，最长 100 字；不传表示不变更；-"
       },
       {
         "key": "categoryId",
@@ -11376,9 +11924,9 @@
         "description": "非必须；-；数据库连通状态；-"
       },
       {
-        "key": "redis",
+        "key": "cache",
         "type": "string",
-        "description": "非必须；-；缓存连通状态；-"
+        "description": "非必须；-；缓存连通状态（进程内缓存）；-"
       }
     ]
   },

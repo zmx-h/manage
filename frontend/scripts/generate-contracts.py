@@ -35,7 +35,7 @@ for index, match in enumerate(heads):
         elif section == 'response':
             returns.append({'key':cells[0], 'type':cells[1], 'description':'；'.join(cells[2:])})
     contracts[match.group(1)] = {'id':match.group(1),'name':basic.get('接口名称'), 'path':basic['Path'], 'method':basic['Method'].lower(), 'permission':basic.get('权限码'), 'description':basic.get('接口描述'), 'auth':basic.get('是否需令牌')=='是','fields':request,'returns':returns}
-assert len(contracts)==186, f'Expected 186 contracts, got {len(contracts)}'
+assert len(contracts)==192, f'Expected 192 contracts, got {len(contracts)}'
 out = root/'frontend/src/config/contracts.json'
 out.write_text(json.dumps(contracts,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 print(f'Generated {len(contracts)} contracts: {out}')

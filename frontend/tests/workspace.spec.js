@@ -9,16 +9,16 @@ async function mock(page, handlers = {}) {
   await page.route('http://127.0.0.1:5173/api/**', async route => {
     const url = new URL(route.request().url()); const path = url.pathname.replace(/^\/api/,'')
     if (handlers[path]) return handlers[path](route)
-    const defaults = {'/user/info':account,'/common/register/config':{inviteEnabled:1,applyEnabled:1,captchaEnabled:0},'/user/message/unread/count':{total:0},'/admin/stat/dashboard':{userCount:0,assetStat:{total:0},budgetStat:{totalAmount:100,usedAmount:0,executionRate:0},pendingTodo:{},todayDuty:[],repoCommitCountThisMonth:0}}
+    const defaults = {'/user/info':account,'/common/register/config':{inviteEnabled:1,applyEnabled:0,captchaEnabled:0},'/user/message/unread/count':{total:0},'/admin/stat/dashboard':{userCount:0,assetStat:{total:0},budgetStat:{totalAmount:100,usedAmount:0,executionRate:0},pendingTodo:{},todayDuty:[],repoCommitCountThisMonth:0}}
     const data = path in defaults ? defaults[path] : /\/dict\//.test(path) ? [{label:'待审核',value:0},{label:'已通过',value:1},{label:'已驳回',value:2}] : path.endsWith('/page') ? {total:0,pageNum:1,pageSize:10,pages:0,list:[]} : []
     return route.fulfill({json:ok(data)})
   })
 }
 async function authenticate(page) { await page.addInitScript(() => { localStorage.setItem('iecmp_access_token','test-access'); localStorage.setItem('iecmp_refresh_token','test-refresh') }) }
 
-test('contracts match all 186 documented endpoints without nested fields at root', async () => {
-  expect(Object.keys(contracts)).toHaveLength(186)
-  expect(pages).toHaveLength(43)
+test('contracts match all 192 documented endpoints without nested fields at root', async () => {
+  expect(Object.keys(contracts)).toHaveLength(192)
+  expect(pages).toHaveLength(44)
   for (const page of pages) for (const id of [page.api,...page.create,...page.actions]) expect(contracts[id],`${page.key}: ${id}`).toBeTruthy()
   expect(contracts['5-13'].fields.find(f=>f.key==='seatId').parent).toBe('seats')
   expect(contracts['5-24'].fields.find(f=>f.key==='auditStatus').description).toContain('1 通过')
@@ -27,14 +27,13 @@ test('contracts match all 186 documented endpoints without nested fields at root
   for(const contract of Object.values(contracts)) expect(sources).toContain(`"${contract.path}"`)
 })
 
-test('every preview page renders without business requests or runtime errors', async ({page}) => {
-  const errors=[]; const requests=[]; page.on('pageerror',e=>errors.push(e.message)); page.on('request',r=>{if(new URL(r.url()).pathname.startsWith('/api/'))requests.push(r.url())})
-  for(const config of pages){ await page.goto(`/preview/${config.side}/${config.path.replace(config.side==='admin'?'/admin/':'/','')}`); await expect(page.locator('.page-heading h1')).toBeVisible(); await expect(page.locator('.preview-banner')).toBeVisible() }
-  expect(errors).toEqual([]); expect(requests).toEqual([])
+test('legacy preview routes are removed', async ({page}) => {
+  await page.goto('/preview/admin/dashboard')
+  await expect(page.getByRole('heading',{name:'页面不存在'})).toBeVisible()
 })
 
 test('system theme follows OS changes; manual preference and language persist', async ({page}) => {
-  await page.emulateMedia({colorScheme:'dark'}); await page.goto('/preview/admin/dashboard'); await expect(page.locator('html')).toHaveClass(/dark/)
+  await authenticate(page); await mock(page); await page.emulateMedia({colorScheme:'dark'}); await page.goto('/admin/dashboard'); await expect(page.locator('html')).toHaveClass(/dark/)
   await page.emulateMedia({colorScheme:'light'}); await expect(page.locator('html')).not.toHaveClass(/dark/)
   await page.getByRole('button',{name:'外观',exact:true}).click(); await page.getByRole('menuitem',{name:/深色/}).click(); await expect(page.locator('html')).toHaveClass(/dark/)
   await page.getByRole('button',{name:'语言',exact:true}).click(); await page.getByRole('menuitem',{name:/English/}).click(); await expect(page.locator('html')).toHaveAttribute('lang','en-US'); await expect(page.locator('.page-heading h1')).toContainText('Welcome back')
@@ -43,9 +42,9 @@ test('system theme follows OS changes; manual preference and language persist', 
 })
 
 test('desktop and mobile layouts do not overflow',async({page})=>{
- await page.goto('/preview/admin/dashboard'); await page.screenshot({path:'test-results/dashboard-light.png',fullPage:true})
- for(const path of ['/preview/admin/dashboard','/preview/admin/system/user','/preview/user/home','/login']){await page.setViewportSize({width:390,height:844}); await mock(page); await page.goto(path); expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy()}
- await page.goto('/preview/admin/dashboard'); await page.getByRole('button',{name:'工作空间',exact:true}).click(); await expect(page.locator('.sidebar')).toHaveCSS('transform','matrix(1, 0, 0, 1, 0, 0)'); await page.screenshot({path:'test-results/mobile.png',fullPage:true})
+ await authenticate(page); await mock(page); await page.goto('/admin/dashboard'); await page.screenshot({path:'test-results/dashboard-light.png',fullPage:true})
+ for(const path of ['/admin/dashboard','/admin/system/user','/home','/login']){await page.setViewportSize({width:390,height:844}); await page.goto(path); expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy()}
+ await page.goto('/admin/dashboard'); await page.getByRole('button',{name:'工作空间',exact:true}).click(); await expect(page.locator('.sidebar')).toHaveCSS('transform','matrix(1, 0, 0, 1, 0, 0)'); await page.screenshot({path:'test-results/mobile.png',fullPage:true})
 })
 
 test('login sends exact fields and navigates to authenticated workspace',async({page})=>{
@@ -115,7 +114,7 @@ test('login and registration screens render in both languages',async({page})=>{
 
 test('all authenticated routes render with empty contract responses and no uncaught errors', async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await authenticate(page);await mock(page)
- for(const config of pages){await page.goto(config.path);await expect(page.locator('.page-heading h1')).toBeVisible();await expect(page.locator('.preview-banner')).toHaveCount(0)}
+ for(const config of pages){await page.goto(config.path);await expect(page.locator('.page-heading h1')).toBeVisible()}
  expect(errors).toEqual([])
 })
 
@@ -129,4 +128,25 @@ test('contribution trend uses real response points and calendar renders document
 test('budget item page waits for required period instead of sending malformed URL',async({page})=>{
  await authenticate(page);const requested=[];await mock(page,{'/user/budget/period/5/item/list':r=>{requested.push(r.request().url());return r.fulfill({json:ok([])})},'/admin/budget/period/page':r=>r.fulfill({json:ok({total:1,list:[{periodId:5,title:'测试周期'}]})})})
  await page.goto('/admin/budget/item');await expect(page.getByText('预算周期',{exact:true}).last()).toBeVisible();expect(requested).toEqual([]);await page.getByLabel('预算周期',{exact:true}).locator('xpath=ancestor::div[contains(@class, "el-select__wrapper")]').click();await page.getByRole('option',{name:'测试周期'}).click();await page.getByRole('button',{name:'查询',exact:true}).click();await expect.poll(()=>requested.length).toBe(1)
+})
+
+test('admin repo heatmap loads documented 2-11 and filters by member', async({page})=>{
+ let heatmapUrl=''; await authenticate(page)
+ await mock(page,{
+  '/admin/user/page':r=>r.fulfill({json:ok({total:1,list:[{userId:7,realName:'测试成员',studentNo:'2026001',status:1}]})}),
+  '/user/repo/commit/heatmap':r=>{heatmapUrl=r.request().url();return r.fulfill({json:ok({year:'2026',totalCommits:12,activeDays:3,maxDaily:5,cells:[{date:'2026-01-01',count:5,level:4}]})})}
+ })
+ await page.goto('/admin/repo'); await page.getByRole('button',{name:'贡献热力图',exact:true}).click()
+ await expect(page.locator('.heatmap-cell')).toHaveCount(1); expect(heatmapUrl).toContain('/user/repo/commit/heatmap')
+ const memberFilter=page.locator('.filter-form .el-form-item').filter({hasText:'成员'})
+ await memberFilter.locator('.el-select').click(); await expect(page.getByRole('option',{name:/测试成员/})).toBeVisible()
+})
+
+test('duty plan member selector replaces raw JSON input', async({page})=>{
+ await authenticate(page)
+ await mock(page,{'/admin/user/page':r=>r.fulfill({json:ok({total:1,list:[{userId:7,realName:'测试成员',studentNo:'2026001',status:1}]})})})
+ await page.goto('/admin/duty/plan'); await page.getByRole('button',{name:'新增排班计划',exact:true}).click()
+ const memberField=page.locator('.contract-form .el-form-item').filter({hasText:'参与成员'})
+ await expect(memberField.locator('.el-select')).toBeVisible()
+ await memberField.locator('.el-select').click(); await expect(page.getByRole('option',{name:/测试成员/})).toBeVisible()
 })

@@ -31,4 +31,16 @@ public class RegisterConfigVO implements Serializable {
     /** 注册页提示文案，由后台配置 */
     @Schema(description = "注册页提示文案，由后台配置")
     private String tips;
+
+    /** 1 开放招新注册码注册，0 关闭 */
+    @Schema(description = "1 开放招新注册码注册，0 关闭")
+    private Integer recruitEnabled;
+
+    /** 招新注册提示文案 */
+    @Schema(description = "招新注册提示文案")
+    private String recruitTips;
+
+    /** 招新注册码有效期（小时） */
+    @Schema(description = "招新注册码有效期（小时）")
+    private Integer recruitCodeExpireHours;
 }

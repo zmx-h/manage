@@ -1,7 +1,7 @@
 package com.iecmp.repo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.iecmp.common.constant.CacheKeyConstants;
+import com.iecmp.common.cache.LocalSyncLock;
 import com.iecmp.common.exception.BusinessException;
 import com.iecmp.repo.client.RepoApiException;
 import com.iecmp.repo.client.RepoPlatformClient;
@@ -27,13 +27,9 @@ import com.iecmp.repo.util.RepoTokenCipher;
 import com.iecmp.repo.vo.RepoSyncVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,7 +37,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * 采集调度实现。
@@ -67,23 +62,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RepoSyncServiceImpl implements RepoSyncService {
 
-    /** 比较并删除锁的 Lua 脚本：只删自己加的锁，避免误删其它实例的。 */
-    private static final RedisScript<Long> RENEW_LOCK_SCRIPT = new DefaultRedisScript<>(
-            "if redis.call('get', KEYS[1]) == ARGV[1] then "
-                    + "return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end",
-            Long.class);
-
-    private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>(
-            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-            Long.class);
-
     /** 错误信息落库前的截断长度，与 {@code repo_sync_log.error_msg} 一致。 */
     private static final int ERROR_MSG_MAX_LENGTH = 1024;
-    private static final long LOCK_RENEW_INTERVAL_MS = 60_000L;
-
-    /** 当前线程持有的采集锁；sleep() 时按分钟续期，避免长任务执行中锁过期。 */
-    private static final ThreadLocal<String> LOCK_TOKEN = new ThreadLocal<>();
-    private static final ThreadLocal<Long> LOCK_LAST_RENEW = new ThreadLocal<>();
 
     private final RepoAccountMapper repoAccountMapper;
     private final RepoProjectMapper repoProjectMapper;
@@ -92,27 +72,25 @@ public class RepoSyncServiceImpl implements RepoSyncService {
     private final RepoPlatformClientRegistry clientRegistry;
     private final RepoTokenCipher repoTokenCipher;
     private final RepoProperties repoProperties;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final LocalSyncLock syncLock;
 
     @Override
     public RepoSyncVO syncAccounts(List<Long> accountIds, boolean fullSync, SyncTypeEnum syncType) {
-        String lockToken = acquireLock();
-        if (lockToken == null) {
+        if (!acquireLock()) {
             // 接口文档 8.5.5 错误码 20006
             throw new BusinessException(RepoErrorCode.E20006.getCode(), RepoErrorCode.E20006.getMsg());
         }
         try {
             return doSync(accountIds, fullSync, syncType);
         } finally {
-            releaseLock(lockToken);
+            releaseLock();
         }
     }
 
     @Override
     public void syncAllScheduled() {
-        String lockToken = acquireLock();
-        if (lockToken == null) {
-            // 多实例部署下另一台正在采集，属正常情况，不打断调度线程
+        if (!acquireLock()) {
+            // 手动补采正在执行，属正常情况，不打断调度线程
             log.info("代码仓库采集锁被占用，本次定时采集跳过");
             return;
         }
@@ -121,7 +99,7 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         } catch (Exception e) {
             log.warn("定时采集执行失败：{}", e.getMessage());
         } finally {
-            releaseLock(lockToken);
+            releaseLock();
         }
     }
 
@@ -134,8 +112,7 @@ public class RepoSyncServiceImpl implements RepoSyncService {
                 log.warn("异步采集跳过：托管账户 {} 不存在", accountId);
                 return;
             }
-            String lockToken = acquireLock();
-            if (lockToken == null) {
+            if (!acquireLock()) {
                 log.info("代码仓库采集锁被占用，账户 {} 的即时采集跳过，等待下次定时采集", accountId);
                 // 绑定/换令牌时已把 sync_status 置为「采集中」，这里必须回退，避免前端一直显示采集中
                 markAccount(accountId, SyncStatusEnum.NOT_SYNCED, null);
@@ -144,7 +121,7 @@ public class RepoSyncServiceImpl implements RepoSyncService {
             try {
                 syncOneAccount(account, fullSync, syncType);
             } finally {
-                releaseLock(lockToken);
+                releaseLock();
             }
         } catch (Exception e) {
             // 采集失败已经在 syncOneAccount 里写进 repo_sync_log，成员可在接口 2-06 看到，
@@ -157,10 +134,6 @@ public class RepoSyncServiceImpl implements RepoSyncService {
     public int pullProjects(RepoAccount account, String plainToken) {
         RepoPlatformClient client = clientRegistry.get(account.getPlatform());
         List<RepoInfo> repos = client.fetchRepos(plainToken);
-        // 拉取仓库列表只发一次第三方请求，处理列表期间不会长时间占用连接；
-        // 这里顺手续一次锁，避免仓库很多时后续逐仓库采集尚未开始锁已到期。
-        renewLockIfNeeded();
-
         // 与 uk_account_repo (account_id, repo_url, deleted) 对齐，按仓库地址判断是否已入库
         Map<String, RepoProject> existing = new LinkedHashMap<>();
         for (RepoProject project : listProjects(account.getId())) {
@@ -198,8 +171,6 @@ public class RepoSyncServiceImpl implements RepoSyncService {
                 repoProjectMapper.updateById(project);
             }
             saved++;
-            // 纯数据库操作，不 sleep；只在需要时续锁，避免仓库很多时锁提前过期
-            renewLockIfNeeded();
         }
         return saved;
     }
@@ -518,58 +489,17 @@ public class RepoSyncServiceImpl implements RepoSyncService {
         return message == null || message.isBlank() ? e.getClass().getSimpleName() : message;
     }
 
-    /** 抢采集锁：SETNX + TTL，抢不到返回 null。 */
-    private String acquireLock() {
-        String token = UUID.randomUUID().toString();
-        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(
-                CacheKeyConstants.REPO_SYNC_LOCK, token,
-                Duration.ofSeconds(repoProperties.getSync().getLockTtlSeconds()));
-        if (Boolean.TRUE.equals(acquired)) {
-            LOCK_TOKEN.set(token);
-            LOCK_LAST_RENEW.set(System.currentTimeMillis());
-            return token;
-        }
-        return null;
+    /** 抢采集锁：进程内非阻塞互斥，抢不到返回 false。 */
+    private boolean acquireLock() {
+        return syncLock.tryAcquire();
     }
 
-    /** 释放采集锁：比对 value 后再删，避免锁过期后误删别的实例刚拿到的锁。 */
-    private void releaseLock(String token) {
-        try {
-            stringRedisTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(CacheKeyConstants.REPO_SYNC_LOCK), token);
-        } catch (Exception e) {
-            // 锁有 TTL 兜底，释放失败不影响正确性
-            log.warn("释放采集锁失败：{}", e.getMessage());
-        } finally {
-            LOCK_TOKEN.remove();
-            LOCK_LAST_RENEW.remove();
-        }
-    }
-
-    /** 长任务心跳：每 60 秒把当前线程持有的锁续到完整 TTL。 */
-    private void renewLockIfNeeded() {
-        String token = LOCK_TOKEN.get();
-        if (token == null) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        Long last = LOCK_LAST_RENEW.get();
-        if (last != null && now - last < LOCK_RENEW_INTERVAL_MS) {
-            return;
-        }
-        try {
-            stringRedisTemplate.execute(RENEW_LOCK_SCRIPT,
-                    List.of(CacheKeyConstants.REPO_SYNC_LOCK),
-                    token, String.valueOf(repoProperties.getSync().getLockTtlSeconds()));
-            LOCK_LAST_RENEW.set(now);
-        } catch (Exception e) {
-            // 续期失败不改变业务结果，锁本身仍有 TTL 兜底
-            log.warn("采集锁续期失败：{}", e.getMessage());
-        }
+    /** 释放采集锁。 */
+    private void releaseLock() {
+        syncLock.release();
     }
 
     private void sleep() {
-        // 即使未配置请求间隔，也要检查是否需要续锁，否则长任务会因锁过期被其他实例抢占。
-        renewLockIfNeeded();
         long interval = repoProperties.getSync().getRequestIntervalMs();
         if (interval <= 0) {
             return;

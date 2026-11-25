@@ -4,14 +4,12 @@
       <div><span class="eyebrow">SPACE / {{ side === 'admin' ? 'MANAGEMENT' : 'WORKSPACE' }}</span><h1>{{ t('seat') }}<span class="greeting-dot">.</span></h1><p>{{ mode === 'layout' ? t('layoutHint') : t('seatHint') }}</p></div><div class="heading-actions">
         <el-button
           v-if="side === 'admin' && can('seat:area:add')"
-          :disabled="preview"
           @click="operation.open('5-08')"
         >
           {{ pair('新建区域','New area') }}
         </el-button><el-button
           v-if="side === 'admin' && can('seat:seat:add')"
           type="primary"
-          :disabled="preview"
           @click="operation.open('5-11',{}, {areaId:activeAreaId})"
         >
           <AppIcon
@@ -42,20 +40,18 @@
           /><el-button
             v-if="mode === 'layout'"
             type="primary"
-            :disabled="preview || !dirty || !can('seat:seat:edit')"
+            :disabled="!dirty || !can('seat:seat:edit')"
             :loading="saving"
             @click="saveLayout"
           >
             {{ t('saveLayout') }}
           </el-button><el-button
             v-if="side === 'admin' && area && can('seat:area:edit')"
-            :disabled="preview"
             @click="operation.open('5-09',area)"
           >
             {{ pair('区域设置','Area settings') }}
           </el-button><button
             class="icon-button"
-            :disabled="preview"
             :aria-label="t('refresh')"
             @click="reload"
           >
@@ -97,7 +93,7 @@
             class="seat-node"
             :class="[`seat-status-${seat.status}`,{dragging:dragged?.seatId===seat.seatId}]"
             :style="seatStyle(seat)"
-            :draggable="!preview && side === 'admin' && (mode === 'layout' ? can('seat:seat:edit') : Boolean(seat.occupantUserId) && can('seat:seat:assign'))"
+            :draggable="side === 'admin' && (mode === 'layout' ? can('seat:seat:edit') : Boolean(seat.occupantUserId) && can('seat:seat:assign'))"
             @dragstart="startDrag($event, seat)"
             @dragend="dragged=null"
             @dragover.prevent
@@ -124,7 +120,6 @@
           <el-button
             v-for="id in seatActions"
             :key="id"
-            :disabled="preview"
             @click="seatAction(id)"
           >
             {{ isEn ? contracts[id].method.toUpperCase()+' · '+id : contracts[id].name }}
@@ -132,7 +127,7 @@
         </template><el-button
           v-else
           type="primary"
-          :disabled="preview || selectedSeat?.status!==1"
+          :disabled="selectedSeat?.status!==1"
           @click="operation.open('5-04',{}, {seatId:selectedSeat?.seatId,areaId:activeAreaId})"
         >
           {{ t('apply') }}
@@ -153,26 +148,26 @@ import AppIcon from '@/components/common/AppIcon.vue'
 import ContractDialog from '@/components/common/ContractDialog.vue'
 import ResourceState from '@/components/common/ResourceState.vue'
 import DataDetails from '@/components/common/DataDetails.vue'
-const { preview, side } = useWorkspace(); const { t, pair, isEn } = useLocale(); const user = useUserStore(); const { data, loading, error, load } = useResource()
+const { side } = useWorkspace(); const { t, pair, isEn } = useLocale(); const user = useUserStore(); const { data, loading, error, load } = useResource()
 const activeAreaId=ref(); const mode=ref('seat'); const operation=ref(); const map=ref(); const dragged=ref(null); const dirty=ref(false); const saving=ref(false); const detailOpen=ref(false); const selectedSeat=ref(null)
-const can=permission=>preview.value || user.hasPerm(permission)
+const can=permission=>user.hasPerm(permission)
 const areas=computed(()=>normalizedList(data.value))
 const area=computed(()=>areas.value.find(x=>x.areaId===activeAreaId.value))
 const seatActions=computed(()=>['5-12','5-15','5-16','5-17','5-14'].filter(id=>can(contracts[id].permission)))
 watch(areas,value=>{ if (!value.some(x=>x.areaId===activeAreaId.value)) activeAreaId.value=value[0]?.areaId })
-const reload=async()=>{ await load(side.value==='admin'?'5-25':'5-01',{},preview.value); dirty.value=false }
-watch([side,preview],reload,{immediate:true})
+const reload=async()=>{ await load(side.value==='admin'?'5-25':'5-01'); dirty.value=false }
+watch(side,reload,{immediate:true})
 function seatStyle(seat) { return {left:`${seat.xRatio}%`,top:`${seat.yRatio}%`,width:`${Math.max(seat.widthRatio || 8,3)}%`,height:`${Math.max(seat.heightRatio || 12,4)}%`,transform:`rotate(${seat.rotation || 0}deg)`} }
 function startDrag(event,seat) { dragged.value=seat; event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',String(seat.seatId)) }
 function selectSeat(seat) { if (dragged.value) return; selectedSeat.value=seat; detailOpen.value=true }
 async function dropSeat(target) {
  if (mode.value==='layout') return
  const source=dragged.value; dragged.value=null
- if (!source || source.seatId===target.seatId || preview.value || !can('seat:seat:assign')) return
+ if (!source || source.seatId===target.seatId || !can('seat:seat:assign')) return
  if ([3,4].includes(target.status)) { ElMessage.warning(t(target.status===3?'reserved':'repairing')); return }
  try { await ElMessageBox.confirm(`${source.seatNo} → ${target.seatNo}`,t('confirm'),{confirmButtonText:t('confirm'),cancelButtonText:t('cancel')}); await invoke('5-26',{fromSeatId:source.seatId,toSeatId:target.seatId}); ElMessage.success(t('saved')); await reload() } catch(e) { if(e!=='cancel' && e!=='close'){ ElMessage.error(e.message); await reload() } }
 }
-function onMapDrop(event) { if(mode.value!=='layout' || !dragged.value || preview.value) return; const rect=map.value.getBoundingClientRect(); const seat=dragged.value; seat.xRatio=Math.max(0,Math.min(100-seat.widthRatio,(event.clientX-rect.left)/rect.width*100-seat.widthRatio/2)); seat.yRatio=Math.max(0,Math.min(100-seat.heightRatio,(event.clientY-rect.top)/rect.height*100-seat.heightRatio/2)); dirty.value=true; dragged.value=null }
-async function saveLayout() { if(preview.value || !area.value) return; saving.value=true; try { const seats=area.value.seats.map(({seatId,xRatio,yRatio,widthRatio,heightRatio,rotation})=>({seatId,xRatio,yRatio,widthRatio,heightRatio,rotation})); for(let i=0;i<seats.length;i+=200) await invoke('5-13',{areaId:activeAreaId.value,seats:seats.slice(i,i+200)}); dirty.value=false; ElMessage.success(t('saved')) } catch(e) { ElMessage.error(e.message) } finally { saving.value=false } }
+function onMapDrop(event) { if(mode.value!=='layout' || !dragged.value) return; const rect=map.value.getBoundingClientRect(); const seat=dragged.value; seat.xRatio=Math.max(0,Math.min(100-seat.widthRatio,(event.clientX-rect.left)/rect.width*100-seat.widthRatio/2)); seat.yRatio=Math.max(0,Math.min(100-seat.heightRatio,(event.clientY-rect.top)/rect.height*100-seat.heightRatio/2)); dirty.value=true; dragged.value=null }
+async function saveLayout() { if(!area.value) return; saving.value=true; try { const seats=area.value.seats.map(({seatId,xRatio,yRatio,widthRatio,heightRatio,rotation})=>({seatId,xRatio,yRatio,widthRatio,heightRatio,rotation})); for(let i=0;i<seats.length;i+=200) await invoke('5-13',{areaId:activeAreaId.value,seats:seats.slice(i,i+200)}); dirty.value=false; ElMessage.success(t('saved')) } catch(e) { ElMessage.error(e.message) } finally { saving.value=false } }
 function seatAction(id) { const row=selectedSeat.value; if(id==='5-14'){ ElMessageBox.confirm(t('deleteConfirm'),t('confirm'),{type:'warning'}).then(()=>invoke(id,{id:row.seatId})).then(()=>{detailOpen.value=false;reload()}).catch(e=>{if(e!=='cancel'&&e!=='close')ElMessage.error(e.message)}) } else operation.value.open(id,row,{id:row.seatId,seatId:row.seatId,areaId:activeAreaId.value}) }
 </script>

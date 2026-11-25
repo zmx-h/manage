@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 /**
  * 接口 2-02 / 2-04 的单元测试。
  *
- * <p>这两条链路要访问 Redis 与第三方平台，集成测试无法覆盖，因此用 Mockito 隔离外部依赖，
+ * <p>这两条链路要访问第三方平台，集成测试无法覆盖，因此用 Mockito 隔离外部依赖，
  * 断言的重点是：令牌必须先校验再落库、落库的是密文、失败错误码正确、换令牌后触发全量重采。
  */
 @ExtendWith(MockitoExtension.class)

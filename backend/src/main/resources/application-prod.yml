@@ -17,20 +17,6 @@ spring:
       max-lifetime: 1800000
       connection-test-query: SELECT 1
 
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 32
-          max-idle: 16
-          min-idle: 4
-          max-wait: 3000ms
-
 logging:
   level:
     root: warn
@@ -58,3 +44,8 @@ jellyfin:
 iecmp:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  # 招新注册码邮件：生产默认开启真实发信，SMTP 账号见 spring.mail.*
+  # RECRUIT_CODE_PEPPER 必须与数据库中的 code_hash 使用同一值，否则已发出的注册码全部失效
+  recruit:
+    mail-enabled: ${RECRUIT_MAIL_ENABLED:1}
+    code-pepper: ${RECRUIT_CODE_PEPPER}

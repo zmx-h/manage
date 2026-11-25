@@ -20,10 +20,6 @@ public class InviteCodeAddDTO implements Serializable {
     @Schema(description = "生成数量，范围 1~50")
     private Integer count;
 
-    /** 每个邀请码可用次数 */
-    @Schema(description = "每个邀请码可用次数")
-    private Integer maxUseCount;
-
     /** 过期时间，不传表示长期有效 */
     @Schema(description = "过期时间，不传表示长期有效")
     private String expireTime;

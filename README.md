@@ -15,14 +15,17 @@
 | `docs/IECMP-项目介绍与技术架构.md` | 系统是什么、怎么搭、为什么这样选 |
 | `docs/IECMP-接口开发文档-v1.6.md` | 每个接口怎么调（**接口契约的唯一权威来源**） |
 | `docs/IECMP-数据库设计.md` | 数据怎么存（**表结构与 DDL 的唯一权威来源**） |
-| `docs/sql/IECMP-数据库建表脚本.sql` | 建库 + 36 张表 DDL，可反复执行 |
+| `docs/sql/IECMP-数据库建表脚本.sql` | 建库 + 37 张表 DDL，可反复执行 |
 | `docs/sql/IECMP-初始数据.sql` | 角色 / 管理员 / 85 个权限码 / 23 类字典，可反复执行 |
+| `docs/sql/IECMP-增量脚本-招新注册.sql` | 已建过库的旧环境补 `sys_user.class_name`、招新报名表与报名状态字典 |
 
 初始化数据库：
 
 ```bash
 mysql -u root -p < docs/sql/IECMP-数据库建表脚本.sql
 mysql -u root -p < docs/sql/IECMP-初始数据.sql
+# 旧库不重建时，再执行增量脚本
+mysql -u root -p < docs/sql/IECMP-增量脚本-招新注册.sql
 ```
 
 初始管理员账号 `admin / 123456`（首次登录后请立即改密）。
@@ -81,11 +84,11 @@ return Result.todo("1-14");   // 返回 code=500，msg="接口 1-14 尚未实现
 
 ### 本机运行前提
 
-- **MySQL**：先执行 `docs/sql/` 下两个脚本；`application-dev.yml` 默认 `127.0.0.1:3306/iecmp`、`root/123456`，
+- **MySQL**：新库执行建表脚本 + 初始数据脚本；已有旧库时补执行招新注册增量脚本。`application-dev.yml` 默认 `127.0.0.1:3306/iecmp`、`root/123456`，
   与本机不同时改 `application-local.yml`（已被 `.gitignore` 忽略）。
-- **Redis**：dev 配置连 `127.0.0.1:6379`（db0）。**本机当前未安装 Redis**，启动前需安装或用 Docker 起一个；
-  Redis 只在登录 / 验证码 / 缓存相关逻辑里用，不装也能启动，但相关接口会失败。
-- 个人机器差异（数据库口令、Redis 地址等）统一放 `backend/src/main/resources/application-local.yml`。
+- **缓存**：本项目不依赖 Redis，令牌黑名单、验证码、字典缓存与限流计数都放在应用进程内，
+  随应用启动创建、随进程退出失效，无需额外中间件。
+- 个人机器差异（数据库口令、文件上传目录等）统一放 `backend/src/main/resources/application-local.yml`。
 
 ### 分层与命名约定（详见《项目介绍与技术架构》3.5 节）
 

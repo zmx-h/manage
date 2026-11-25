@@ -37,6 +37,10 @@ public class InfoVO implements Serializable {
     @Schema(description = "年级，如 2023")
     private String grade;
 
+    /** 班级 */
+    @Schema(description = "班级")
+    private String className;
+
     /** 专业 */
     @Schema(description = "专业")
     private String major;

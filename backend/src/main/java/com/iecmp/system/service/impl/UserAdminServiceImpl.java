@@ -73,7 +73,8 @@ public class UserAdminServiceImpl implements UserAdminService {
             String keyword = query.getKeyword().trim();
             wrapper.and(w -> w.like(SysUser::getRealName, keyword)
                     .or().like(SysUser::getUsername, keyword)
-                    .or().like(SysUser::getStudentNo, keyword));
+                    .or().like(SysUser::getStudentNo, keyword)
+                    .or().like(SysUser::getClassName, keyword));
         }
         if (StringUtils.hasText(query.getRoleCode())) {
             SysRole role = sysRoleService.getOne(Wrappers.<SysRole>lambdaQuery()
@@ -105,6 +106,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         vo.setRealName(user.getRealName());
         vo.setStudentNo(user.getStudentNo());
         vo.setGrade(user.getGrade());
+        vo.setClassName(user.getClassName());
         vo.setMajor(user.getMajor());
         vo.setPhone(user.getPhone());
         vo.setEmail(user.getEmail());
@@ -126,7 +128,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         if (username.length() < 4 || username.length() > 32) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "登录账号长度需为 4~32 位");
         }
-        validateProfile(dto.getRealName(), dto.getStudentNo(), dto.getGrade(), dto.getMajor(),
+        validateProfile(dto.getRealName(), dto.getStudentNo(), dto.getGrade(), dto.getClassName(), dto.getMajor(),
                 dto.getPhone(), dto.getEmail(), dto.getRemark(), null);
         if (sysUserService.count(Wrappers.<SysUser>lambdaQuery().eq(SysUser::getUsername, username)) > 0) {
             throw error(SystemErrorCode.E10013);
@@ -156,6 +158,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         user.setRealName(dto.getRealName().trim());
         user.setStudentNo(trimToNull(dto.getStudentNo()));
         user.setGrade(trimToNull(dto.getGrade()));
+        user.setClassName(trimToNull(dto.getClassName()));
         user.setMajor(trimToNull(dto.getMajor()));
         user.setPhone(trimToNull(dto.getPhone()));
         user.setEmail(trimToNullLower(dto.getEmail()));
@@ -179,7 +182,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         if (targetSuper && !operatorSuperAdmin) {
             throw new BusinessException(ResultCode.FORBIDDEN);
         }
-        validateProfile(dto.getRealName(), dto.getStudentNo(), dto.getGrade(), dto.getMajor(),
+        validateProfile(dto.getRealName(), dto.getStudentNo(), dto.getGrade(), dto.getClassName(), dto.getMajor(),
                 dto.getPhone(), dto.getEmail(), dto.getRemark(), user.getId());
         if (StringUtils.hasText(dto.getStudentNo())
                 && sysUserService.count(Wrappers.<SysUser>lambdaQuery()
@@ -209,6 +212,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         user.setRealName(dto.getRealName().trim());
         user.setStudentNo(trimToNull(dto.getStudentNo()));
         user.setGrade(trimToNull(dto.getGrade()));
+        user.setClassName(trimToNull(dto.getClassName()));
         user.setMajor(trimToNull(dto.getMajor()));
         user.setPhone(trimToNull(dto.getPhone()));
         user.setEmail(trimToNullLower(dto.getEmail()));
@@ -350,6 +354,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         vo.setRealName(user.getRealName());
         vo.setStudentNo(user.getStudentNo());
         vo.setGrade(user.getGrade());
+        vo.setClassName(user.getClassName());
         vo.setMajor(user.getMajor());
         vo.setPhone(user.getPhone());
         vo.setEmail(user.getEmail());
@@ -362,7 +367,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         return vo;
     }
 
-    private void validateProfile(String realName, String studentNo, String grade, String major,
+    private void validateProfile(String realName, String studentNo, String grade, String className, String major,
                                  String phone, String email, String remark, Long excludeId) {
         if (!StringUtils.hasText(realName) || realName.trim().length() > 32) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "姓名不能为空且最长 32 字");
@@ -372,6 +377,9 @@ public class UserAdminServiceImpl implements UserAdminService {
         }
         if (grade != null && grade.trim().length() > 10) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "年级最长 10 字");
+        }
+        if (className != null && className.trim().length() > 50) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "班级最长 50 字");
         }
         if (major != null && major.trim().length() > 50) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "专业最长 50 字");

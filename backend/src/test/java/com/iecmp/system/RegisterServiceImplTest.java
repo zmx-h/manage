@@ -1,5 +1,6 @@
 package com.iecmp.system;
 
+import com.iecmp.common.cache.LocalCacheStore;
 import com.iecmp.common.context.LoginUser;
 import com.iecmp.common.context.UserContext;
 import com.iecmp.common.exception.BusinessException;
@@ -26,8 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,8 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,20 +53,17 @@ class RegisterServiceImplTest {
     private SysUserRoleService userRoleService;
     @Mock
     private SysRoleService roleService;
-    @Mock
-    private StringRedisTemplate redisTemplate;
-    @Mock
-    private ValueOperations<String, String> valueOperations;
 
+    private LocalCacheStore cacheStore;
     private IecmpProperties properties;
     private RegisterServiceImpl service;
 
     @BeforeEach
     void setUp() {
         properties = new IecmpProperties();
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        cacheStore = new LocalCacheStore();
         service = new RegisterServiceImpl(inviteCodeService, registerApplyService,
-                userService, userRoleService, roleService, properties, redisTemplate);
+                userService, userRoleService, roleService, properties, cacheStore);
     }
 
     @AfterEach
@@ -97,8 +91,7 @@ class RegisterServiceImplTest {
         SysInviteCode invite = new SysInviteCode();
         invite.setId(3L);
         invite.setCode("ABCD2345");
-        invite.setMaxUseCount(2);
-        invite.setUsedCount(1);
+        invite.setUsedCount(0);
         invite.setStatus(1);
         invite.setExpireTime(LocalDateTime.now().plusDays(1));
         SysRole member = new SysRole();
@@ -136,7 +129,6 @@ class RegisterServiceImplTest {
         SysInviteCode invite = new SysInviteCode();
         invite.setId(3L);
         invite.setCode("ABCD2345");
-        invite.setMaxUseCount(2);
         invite.setUsedCount(0);
         invite.setStatus(1);
         when(inviteCodeService.getOne(any())).thenReturn(invite);
@@ -158,7 +150,6 @@ class RegisterServiceImplTest {
 
     @Test
     void repeatedApplyOverwritesPendingApplication() {
-        when(valueOperations.increment(anyString())).thenReturn(1L);
         when(userService.count(any())).thenReturn(0L);
         SysRegisterApply existing = new SysRegisterApply();
         existing.setId(8L);
@@ -182,7 +173,9 @@ class RegisterServiceImplTest {
 
     @Test
     void applyRejectsFourthSubmissionFromSameIp() {
-        when(valueOperations.increment(anyString())).thenReturn(4L);
+        for (int i = 0; i < 3; i++) {
+            cacheStore.increment("iecmp:limit:register:127.0.0.1", 3600L);
+        }
 
         RegisterApplyDTO dto = new RegisterApplyDTO();
         dto.setRealName("李四");

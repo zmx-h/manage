@@ -58,6 +58,49 @@
             :value="option.value"
           />
         </el-select>
+        <div
+          v-else-if="f.key === 'groupConfig'"
+          class="group-editor"
+        >
+          <div
+            v-for="(group, index) in values[f.key]"
+            :key="index"
+            class="group-row"
+          >
+            <el-input
+              v-model="group.name"
+              :placeholder="pair('分组名称', 'Group name')"
+            />
+            <el-select
+              v-model="group.memberIds"
+              multiple
+              filterable
+              collapse-tags
+              :placeholder="pair('选择成员', 'Select members')"
+            >
+              <el-option
+                v-for="option in options.memberIds || []"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <el-button
+              text
+              type="danger"
+              @click="values[f.key].splice(index, 1)"
+            >
+              {{ t('remove') }}
+            </el-button>
+          </div>
+          <el-button
+            text
+            type="primary"
+            @click="values[f.key].push({ name: '', memberIds: [] })"
+          >
+            + {{ pair('添加分组', 'Add group') }}
+          </el-button>
+        </div>
         <el-date-picker
           v-else-if="typeFor(f) === 'datetime' || typeFor(f) === 'date'"
           v-model="values[f.key]"
@@ -125,7 +168,7 @@
         v-if="!showingResult"
         type="primary"
         :loading="saving"
-        :disabled="preview || optionsLoading"
+        :disabled="optionsLoading"
         @click="submit"
       >
         {{ t(contract?.method === 'get' ? 'searchAction' : 'confirm') }}
@@ -140,12 +183,11 @@ import { contracts, invoke, normalizedList } from '@/api/client'
 import { loadDict } from '@/utils/dict'
 import { labelFor, typeFor, fieldDictionaries } from '@/config/fields'
 import { useLocale } from '@/locales'
-import { useWorkspace } from '@/composables/useWorkspace'
 import { useUserStore } from '@/store/modules/user'
 import FileUpload from './FileUpload.vue'
 import DataDetails from './DataDetails.vue'
 import AppIcon from './AppIcon.vue'
-const { t, pair, isEn } = useLocale(); const { preview } = useWorkspace(); const user = useUserStore()
+const { t, pair, isEn } = useLocale(); const user = useUserStore()
 const emit = defineEmits(['done'])
 const visible = ref(false); const saving = ref(false); const error = ref(null); const contract = ref(null); const values = reactive({}); const fields = ref([]); const options = reactive({}); const formRef = ref(); const optionsLoading = ref(false); const result = ref(null); const showingResult = ref(false); const hint = ref('')
 const uploadFields = { avatarUrl: 'avatar', planImageUrl: 'seat', coverUrl: 'video', certificateUrl: 'honor', attachFileId: 'budget', voucherFileId: 'budget' }
@@ -162,33 +204,33 @@ async function open(id, row = {}, defaults = {}) {
     if (f.key === 'messageIds' && row.messageId) value = [row.messageId]
     if (value === undefined && f.key === 'status' && contract.value.method === 'post' && /1-10|1-17/.test(id)) value = 1
     if (value === undefined && f.type === 'array' && f.required) value = []
-    if (typeFor(f) === 'json') value = value === undefined ? '' : JSON.stringify(value, null, 2)
+    if (f.key === 'groupConfig') value = Array.isArray(value) ? value.map(group => ({ name: group.name || '', memberIds: [...(group.memberIds || [])] })) : []
+    else if (typeFor(f) === 'json') value = value === undefined ? '' : JSON.stringify(value, null, 2)
     values[f.key] = value
   }
   visible.value = true; optionsLoading.value = true
   try {
     const lookup = async (key, api, idKey, labelKey, params = {}) => { if (!fields.value.some(f => f.key === key)) return; try { const data = normalizedList(await invoke(api, params)); options[key] = data.map(x => ({ value: x[idKey], label: x[labelKey] || String(x[idKey]) })); if (typeFor(fields.value.find(f => f.key === key)) === 'json' && typeof values[key] === 'string') values[key] = JSON.parse(values[key] || '[]') } catch { hint.value = pair('部分选项暂不可用，可按接口字段填写。', 'Some options are unavailable. Enter the documented values directly.') } }
-    if (!preview.value) {
-      await Promise.all([
+    await Promise.all([
         lookup('roleIds','1-15','roleId','roleName'),
+        lookup('memberIds','1-08','userId','realName',{pageSize:100,status:1}),
         lookup('periodId', user.canAdmin ? '3-10' : '3-01','periodId','title',{pageSize:100}), lookup('areaId',user.canAdmin ? '5-07':'5-01','areaId','name'),
         ...fields.value.filter(f => fieldDictionaries[f.key] && !(f.key === 'bizType' && !id.startsWith('8-1'))).map(async f => { try { options[f.key] = await loadDict(fieldDictionaries[f.key]) } catch { /* Keep manual field input available. */ } })
       ])
-    }
     if (fields.value.some(f => f.key === 'auditStatus' || f.key === 'handleStatus')) for (const key of ['auditStatus','handleStatus']) options[key] = [{value:1,label:t('approved')},{value:2,label:t('rejected')}]
     for (const key of ['isPublic','isShow','isTop','publish','enabled','tracked','overwrite','skipWeekend','fullSync','all']) if (fields.value.some(f => f.key === key)) options[key] = [{value:1,label:pair('是','Yes')},{value:0,label:pair('否','No')}]
     const statusDict = { '3-14': 'budgetPeriodStatus', '4-13': 'assetStatus', '5-17': 'seatStatus', '7-18': 'dutyStatus' }[id]
-    if (statusDict && !preview.value) { try { options.status = (await loadDict(statusDict)).filter(x => !(id === '4-13' && x.value === 4 || id === '5-17' && x.value === 2 || id === '7-18' && x.value === 3)) } catch { /* Keep numeric entry if lookup fails. */ } }
+    if (statusDict) { try { options.status = (await loadDict(statusDict)).filter(x => !(id === '4-13' && x.value === 4 || id === '5-17' && x.value === 2 || id === '7-18' && x.value === 3)) } catch { /* Keep numeric entry if lookup fails. */ } }
     if (['1-10','1-11','1-12','1-17','1-18'].includes(id)) options.status = [{value:1,label:t('enabled')},{value:0,label:t('disabled')}]
     if (fields.value.some(f => f.key === 'borrowType')) options.borrowType = [{value:1,label:pair('借用（需归还）','Borrow (return required)')},{value:2,label:pair('领用','Issue (no return)')}]
     if (fields.value.some(f => f.key === 'gender')) options.gender = [{value:0,label:pair('未知','Unknown')},{value:1,label:pair('男','Male')},{value:2,label:pair('女','Female')}]
-    if (fields.value.some(f => f.key === 'platform') && !preview.value) { try { const platforms = await invoke('2-01'); options.platform = normalizedList(platforms).map(x=>({value:x.code || x.platform,label:x.name || x.platformName || x.code})) } catch { /* Manual platform code remains available. */ } }
-    if (fields.value.some(f => f.key === 'permCodes') && !preview.value) { try { const tree = await invoke('1-21'); const flatten = nodes => nodes.flatMap(n => n.code ? [{value:n.code,label:`${n.label} · ${n.code}`}] : flatten(n.children || [])); options.permCodes = flatten(tree); if (typeof values.permCodes === 'string') values.permCodes = JSON.parse(values.permCodes || '[]') } catch { /* JSON permission codes remain editable. */ } }
+    if (fields.value.some(f => f.key === 'platform')) { try { const platforms = await invoke('2-01'); options.platform = normalizedList(platforms).map(x=>({value:x.code || x.platform,label:x.name || x.platformName || x.code})) } catch { /* Manual platform code remains available. */ } }
+    if (fields.value.some(f => f.key === 'permCodes')) { try { const tree = await invoke('1-21'); const flatten = nodes => nodes.flatMap(n => n.code ? [{value:n.code,label:`${n.label} · ${n.code}`}] : flatten(n.children || [])); options.permCodes = flatten(tree); if (typeof values.permCodes === 'string') values.permCodes = JSON.parse(values.permCodes || '[]') } catch { /* JSON permission codes remain editable. */ } }
     if (fields.value.some(f => f.key === 'dataScope')) options.dataScope = [{value:1,label:pair('全部数据','All records')},{value:2,label:pair('本人数据','Own records')}]
   } finally { optionsLoading.value = false }
 }
 async function submit() {
-  if (preview.value || !await formRef.value.validate().catch(() => false)) return
+  if (!await formRef.value.validate().catch(() => false)) return
   saving.value = true; error.value = null
   try {
     const payload = { ...values }
@@ -198,6 +240,8 @@ async function submit() {
       if (/^(amount|totalAmount|budgetAmount|approvedAmount|price)$/.test(f.key) && value !== undefined && value < 0) throw new Error(pair('金额不能为负数','Amounts cannot be negative'))
     }
     if (contract.value.id === '1-07' && (payload.newPassword !== payload.confirmPassword || !/^(?=.*[A-Za-z])(?=.*\d).{6,32}$/.test(payload.newPassword || ''))) throw new Error(t('passwordHint'))
+    if (payload.planType === 2 && (!Array.isArray(payload.groupConfig) || !payload.groupConfig.length)) throw new Error(pair('分组轮转需至少配置一个分组', 'Add at least one group for group rotation'))
+    if (Array.isArray(payload.groupConfig)) payload.groupConfig = payload.groupConfig.filter(group => group && group.name && group.name.trim()).map(group => ({ name: group.name.trim(), memberIds: group.memberIds || [] }))
     for (const f of fields.value) if (typeFor(f) === 'json' && typeof payload[f.key] === 'string' && payload[f.key]) { try { payload[f.key] = JSON.parse(payload[f.key]); if (f.type === 'array' && !Array.isArray(payload[f.key]) || f.type === 'object' && (typeof payload[f.key] !== 'object' || Array.isArray(payload[f.key]) || payload[f.key] === null)) throw new Error('type') } catch { throw new Error(`${labelFor(f.key, isEn.value)}: ${t('jsonHint')}`) } }
     const response = await invoke(contract.value.id, payload)
     emit('done', response)
@@ -208,3 +252,9 @@ async function submit() {
 }
 defineExpose({ open })
 </script>
+
+<style scoped>
+.group-editor { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.group-row { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; gap: 8px; align-items: center; }
+@media (max-width: 720px) { .group-row { grid-template-columns: 1fr; } }
+</style>

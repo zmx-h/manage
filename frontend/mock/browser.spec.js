@@ -18,7 +18,7 @@ test('mock console provides one-click login and dashboard with local data',async
  const errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:5173')&&!r.url().startsWith('data:')&&!r.url().startsWith('blob:'))external.push(r.url())})
  await page.goto('/__mock/');await page.getByRole('button',{name:'一键体验管理端 →'}).click();await expect(page).toHaveURL(/\/admin\/dashboard$/);await expect(page.locator('.stat-card').first()).toContainText('8');await expect(page.getByText('本地模拟 · 测试数据 / 测试控制台')).toBeVisible();await page.screenshot({path:'test-results/mock-dashboard.png',fullPage:true});expect(errors).toEqual([]);expect(external).toEqual([])
 })
-test('all 43 pages render with live local mock requests and no runtime errors',async({page})=>{
+test('all 44 pages render with live local mock requests and no runtime errors',async({page})=>{
  const errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',async r=>{if(new URL(r.url()).pathname.startsWith('/api/'))try{const body=await r.json();if(body.code!==200)failures.push(`${r.url()}: ${body.code} ${body.msg}`)}catch{/* binary export */}})
  await login(page)
  for(const p of pages){await page.goto(p.path);await expect(page.locator('.page-heading h1')).toBeVisible();await expect(page.locator('.el-loading-mask')).toHaveCount(0)}
